@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Photo Sphere Studio 3D</title>
+  <meta name="description" content="Simulador de universo fotográfico 3D orbital con física anti-colisión, texturizado procedural en alta resolución y modo Zen inmersivo.">
+
+  <!-- Tailwind CSS Engine -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js Graphics & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Modular CSS Architecture -->
+  <link rel="stylesheet" href="./css/main.css">
+  <link rel="stylesheet" href="./css/ui-panel.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/responsive.css">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              cyan: '#00f0ff',
+              violet: '#8b5cf6',
+              dark: '#080a11',
+              glass: 'rgba(12, 16, 27, 0.85)'
+            }
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="text-slate-100 h-screen w-screen relative overflow-hidden select-none bg-[#080a11]">
+
+  <!-- WebGL Rendering Canvas -->
+  <canvas id="webgl-canvas" aria-label="Escena 3D Photo Sphere Studio"></canvas>
+
+  <!-- Encabezado Principal (Safe Area) -->
+  <header id="main-header" class="absolute top-0 left-0 right-0 z-20 pointer-events-none safe-top px-4 md:px-6 transition-opacity duration-300">
+    <div class="flex items-center justify-between pointer-events-auto">
+      <div class="flex items-center gap-2.5">
+        <div class="relative flex items-center justify-center">
+          <div class="w-3.5 h-3.5 rounded-full bg-[#00f0ff] shadow-[0_0_15px_#00f0ff]"></div>
+          <div class="w-3.5 h-3.5 rounded-full bg-[#8b5cf6] absolute inset-0 opacity-50"></div>
+        </div>
+        <div>
+          <h1 class="text-base md:text-xl font-black tracking-wider text-white flex items-center gap-1.5 drop-shadow">
+            SPHERE<span class="text-[#00f0ff] font-light">3D</span>
+            <span class="text-[9px] uppercase tracking-widest bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded-full border border-cyan-400/40">Studio</span>
+          </h1>
+          <p class="hidden sm:block text-[11px] text-slate-400">Universo fotográfico interactivo y simulación orbital</p>
+          <button id="universe-chip" type="button" class="mt-0.5 flex items-center gap-1.5 max-w-[46vw] sm:max-w-xs text-[11px] text-slate-300 hover:text-[#00f0ff] transition cursor-pointer" title="Abrir / guardar universos (Ctrl+S guarda)">
+            <i data-lucide="folder-open" class="w-3 h-3 shrink-0 pointer-events-none"></i>
+            <span id="universe-chip-name" class="truncate">Universo sin título</span>
+            <span id="universe-chip-dirty" class="hidden text-amber-400 text-sm leading-none" title="Cambios sin guardar">●</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Selector y Navegador Celestial Principal en Encabezado -->
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <div class="glass-panel p-1 sm:p-1.5 rounded-2xl flex items-center gap-1 sm:gap-1.5 border border-cyan-400/40 shadow-[0_0_20px_rgba(0,240,255,0.15)] bg-slate-950/85 backdrop-blur-md">
+          <!-- Botón Esfera Anterior -->
+          <button id="btn-prev-sphere" class="p-1.5 text-slate-300 hover:text-[#00f0ff] rounded-xl hover:bg-white/10 transition cursor-pointer" title="Esfera anterior">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+          
+          <!-- Dropdown Real y Estilizado de Esferas -->
+          <div class="relative flex items-center">
+            <select id="header-sphere-select" class="appearance-none bg-black/60 hover:bg-black/80 text-white font-medium text-xs sm:text-sm pl-2.5 pr-7 py-1.5 rounded-xl border border-white/15 hover:border-cyan-400/60 transition cursor-pointer focus:outline-none focus:border-cyan-300 focus:ring-1 focus:ring-cyan-300/40" title="Selecciona una esfera celestial">
+              <!-- Dynamically populated: ⭐ Sol Alfa, 🪐 Planeta Terra, 🌙 Luna Selene -->
+            </select>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-cyan-400 absolute right-2 pointer-events-none"></i>
+          </div>
+
+          <!-- Botón Esfera Siguiente -->
+          <button id="btn-next-sphere" type="button" class="p-1.5 text-slate-300 hover:text-[#00f0ff] rounded-xl hover:bg-white/10 transition cursor-pointer" title="Siguiente esfera">
+            <i data-lucide="chevron-right" class="w-4 h-4 pointer-events-none"></i>
+          </button>
+
+          <div class="w-px h-5 bg-white/15 mx-0.5"></div>
+
+          <!-- Botón "Ir a la Esfera" / "Volar" Destacado -->
+          <button id="btn-header-go-sphere" type="button" class="px-2.5 py-1.5 bg-gradient-to-r from-cyan-500/30 to-blue-600/30 hover:from-cyan-500/50 hover:to-blue-600/50 border border-cyan-400/60 text-cyan-200 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition transform active:scale-95 shadow-[0_0_12px_rgba(0,240,255,0.25)] cursor-pointer" title="Volar y centrar cámara en esta esfera">
+            <i data-lucide="crosshair" class="w-3.5 h-3.5 text-cyan-300 pointer-events-none"></i>
+            <span class="hidden sm:inline">Ir a Esfera</span>
+          </button>
+        </div>
+
+        <!-- Botón Ver Todo el Sistema (Restablecer encuadre) -->
+        <button id="btn-reset-cam" type="button" class="glass-btn p-2 sm:p-2.5 rounded-2xl text-slate-200 shadow-lg hover:text-[#00f0ff] border border-white/10 cursor-pointer" title="Ver todo el universo (Restablecer encuadre)">
+          <i data-lucide="rotate-ccw" class="w-4 h-4 pointer-events-none"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Barra Flotante Superior de Acceso Directo a Cuerpos Celestes (Pills) -->
+  <div id="celestial-pills-bar" class="absolute top-14 sm:top-16 left-0 right-0 z-20 pointer-events-none flex justify-center px-4 transition-opacity duration-300">
+    <div id="celestial-pills-container" class="pointer-events-auto max-w-full overflow-x-auto no-scrollbar flex items-center gap-1.5 p-1 rounded-full bg-slate-950/80 border border-cyan-400/30 backdrop-blur-md shadow-[0_4px_25px_rgba(0,0,0,0.6)]">
+      <!-- Se generan dinámicamente las píldoras de esferas: [ ⭐ Sol Alfa ] [ 🪐 Planeta Terra ] [ 🌙 Luna Selene ] -->
+    </div>
+  </div>
+
+  <!-- Botonera Flotante de Acciones Rápidas (FAB) -->
+  <nav id="quick-action-bar" class="absolute bottom-20 md:bottom-auto md:top-20 right-4 z-30 flex md:flex-col items-center gap-2 pointer-events-auto transition-opacity duration-300">
+    <!-- Modo Zen / Vista Limpia -->
+    <button id="btn-clean-view" class="glass-panel p-3 rounded-full text-[#00f0ff] hover:scale-105 hover:bg-cyan-500/25 border-cyan-400/50 shadow-[0_0_18px_rgba(0,240,255,0.3)] cursor-pointer" title="Vista Limpia / Modo Inmersivo">
+      <i data-lucide="maximize" class="w-5 h-5 pointer-events-none"></i>
+    </button>
+    <!-- Viaje rápido por el universo -->
+    <button id="btn-quick-tour" class="glass-panel p-3 rounded-full text-violet-300 border-violet-400/50 bg-violet-950/30 hover:bg-violet-500/25 shadow-xl transition cursor-pointer active:scale-95" title="Viaje rápido por el universo">
+      <i data-lucide="rocket" class="w-5 h-5 pointer-events-none"></i>
+    </button>
+    <!-- Universos guardados -->
+    <button id="btn-quick-universes" class="glass-panel p-3 rounded-full text-emerald-300 border-emerald-400/50 bg-emerald-950/30 hover:bg-emerald-500/25 shadow-xl transition cursor-pointer active:scale-95" title="Universos: guardar y abrir">
+      <i data-lucide="folder-open" class="w-5 h-5 pointer-events-none"></i>
+    </button>
+    <!-- Añadir Esfera -->
+    <button id="btn-quick-add" class="glass-panel p-3 rounded-full text-[#00f0ff] hover:bg-cyan-500/20 shadow-xl cursor-pointer" title="Añadir Esfera Separada">
+      <i data-lucide="plus" class="w-5 h-5 pointer-events-none"></i>
+    </button>
+    <!-- Repulsión Anti-Colisión -->
+    <button id="btn-quick-repel" class="glass-panel p-3 rounded-full text-amber-400 hover:bg-amber-500/20 shadow-xl cursor-pointer" title="Forzar Relajación Anti-Colisión">
+      <i data-lucide="sparkles" class="w-5 h-5 pointer-events-none"></i>
+    </button>
+    <!-- Alternar Líneas de Guías Cósmicas (Órbitas y Conexiones) -->
+    <button id="btn-quick-orbit-lines" class="glass-panel p-3 rounded-full text-[#00f0ff] border-cyan-400/60 bg-cyan-950/20 hover:bg-cyan-500/20 shadow-xl transition cursor-pointer" title="Mostrar / Ocultar Guías Cósmicas (Órbitas y Conexiones)">
+      <i data-lucide="orbit" class="w-5 h-5 pointer-events-none"></i>
+    </button>
+    <!-- Botón Rápido Velocidad General del Universo -->
+    <button id="btn-quick-speed" class="glass-panel p-2.5 rounded-full text-amber-300 border-amber-400/50 bg-amber-950/30 hover:bg-amber-500/25 shadow-xl transition cursor-pointer flex flex-col items-center justify-center group active:scale-95" title="Modificar Velocidad General del Universo (Clic para cambiar)">
+      <i data-lucide="zap" class="w-4 h-4 pointer-events-none text-amber-400"></i>
+      <span id="badge-quick-speed" class="text-[9px] font-black font-mono leading-none mt-0.5 text-amber-300">1x</span>
+    </button>
+    <!-- Pausar / Rotar -->
+    <button id="btn-quick-spin" class="glass-panel p-3 rounded-full text-slate-200 hover:text-white shadow-xl cursor-pointer" title="Pausar / Rotar Órbitas">
+      <i data-lucide="pause" class="w-5 h-5 pointer-events-none" id="icon-pause"></i>
+      <i data-lucide="play" class="w-5 h-5 hidden pointer-events-none" id="icon-play"></i>
+    </button>
+    <!-- Captura HD -->
+    <button id="btn-quick-camera" class="glass-panel p-3 rounded-full text-emerald-400 hover:bg-emerald-500/20 shadow-xl cursor-pointer" title="Capturar Pantalla HD">
+      <i data-lucide="camera" class="w-5 h-5 pointer-events-none"></i>
+    </button>
+    <!-- Abrir Panel de Control -->
+    <button id="btn-toggle-main-menu" class="glass-panel p-3 rounded-full text-[#00f0ff] border-cyan-400/40 bg-cyan-950/40 shadow-xl cursor-pointer" title="Abrir Ajustes">
+      <i data-lucide="sliders" class="w-5 h-5 pointer-events-none"></i>
+    </button>
+  </nav>
+
+  <!-- Menú lateral derecho de Vista Zen (oculto por defecto; solo asoma una flecha sutil) -->
+  <div id="zen-side-dock" class="fixed right-0 z-50 hidden flex flex-row-reverse items-stretch transition-transform duration-300 ease-out" style="top: 50%; transform: translate(calc(100% - 1.75rem), -50%);">
+    <div id="zen-side-panel" class="glass-panel rounded-l-2xl p-2 flex flex-col gap-2 border border-cyan-400/30 shadow-2xl">
+      <button id="btn-zen-tour" type="button" class="glass-btn px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-semibold text-slate-100 hover:text-[#00f0ff] border border-cyan-400/40 cursor-pointer transition whitespace-nowrap" title="Iniciar / detener viaje por el universo">
+        <i data-lucide="rocket" class="w-4 h-4 text-[#00f0ff] pointer-events-none"></i>
+        <span id="lbl-zen-tour">Viaje rápido</span>
+      </button>
+      <button id="btn-zen-speed" type="button" class="glass-btn px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-semibold text-amber-200 hover:text-amber-100 border border-amber-400/40 cursor-pointer transition whitespace-nowrap" title="Velocidad general del universo (clic para cambiar)">
+        <i data-lucide="zap" class="w-4 h-4 text-amber-400 pointer-events-none"></i>
+        <span>Velocidad</span>
+        <span id="badge-zen-speed" class="ml-auto font-mono font-black text-amber-300">1x</span>
+      </button>
+      <button id="btn-zen-tour-speed" type="button" class="glass-btn px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-semibold text-violet-200 hover:text-violet-100 border border-violet-400/40 cursor-pointer transition whitespace-nowrap" title="Velocidad del viaje por el universo (clic para cambiar)">
+        <i data-lucide="gauge" class="w-4 h-4 text-violet-400 pointer-events-none"></i>
+        <span>Vel. viaje</span>
+        <span id="badge-zen-tour-speed" class="ml-auto font-mono font-black text-violet-300">1x</span>
+      </button>
+      <!-- Salir de Vista Limpia -->
+      <div id="btn-exit-clean-mode" class="hidden opacity-0 pointer-events-none transition-all duration-300">
+        <button type="button" class="w-full glass-btn px-3 py-2.5 rounded-xl flex items-center gap-2.5 text-xs font-semibold text-slate-100 hover:text-[#00f0ff] border border-white/15 hover:border-cyan-400 transition cursor-pointer whitespace-nowrap">
+          <i data-lucide="minimize-2" class="w-4 h-4 text-[#00f0ff] pointer-events-none"></i>
+          <span>Salir de Vista Limpia</span>
+          <kbd class="hidden sm:inline-block bg-white/10 px-1.5 py-0.5 rounded text-[10px] text-slate-400 font-mono">ESC</kbd>
+        </button>
+      </div>
+    </div>
+    <button id="btn-zen-dock-toggle" type="button" class="self-center w-7 h-14 -mr-px rounded-l-xl bg-black/30 hover:bg-cyan-500/20 border border-r-0 border-white/10 text-slate-400 hover:text-[#00f0ff] opacity-60 hover:opacity-100 flex items-center justify-center cursor-pointer transition" aria-expanded="false" title="Mostrar / ocultar menú">
+      <i id="zen-dock-chevron" data-lucide="chevron-left" class="w-4 h-4 pointer-events-none"></i>
+    </button>
+  </div>
+
+  <!-- Desplegable de esferas (solo Vista Zen, oculto por defecto) -->
+  <div id="zen-sphere-menu" class="fixed top-5 left-4 z-50 hidden" style="top: max(1.25rem, env(safe-area-inset-top)); left: max(1rem, env(safe-area-inset-left));">
+    <button id="btn-zen-menu-toggle" type="button" class="glass-panel px-3.5 py-2.5 rounded-full flex items-center gap-2 text-xs font-semibold text-slate-100 hover:text-[#00f0ff] border border-cyan-400/50 cursor-pointer" aria-expanded="false" aria-controls="zen-sphere-list">
+      <i data-lucide="orbit" class="w-4 h-4 text-[#00f0ff] pointer-events-none"></i>
+      <span>Esferas</span>
+      <i data-lucide="chevron-down" class="w-3.5 h-3.5 pointer-events-none"></i>
+    </button>
+    <div id="zen-sphere-list" class="hidden glass-panel mt-2 p-1.5 rounded-2xl w-64 max-w-[80vw] max-h-[60dvh] overflow-y-auto space-y-0.5 border border-cyan-400/30"></div>
+  </div>
+
+  <!-- Píldora Inferior de Carga de Fotos -->
+  <div id="bottom-photo-bar" class="absolute bottom-4 left-4 right-4 md:left-auto md:right-auto md:bottom-6 md:left-6 z-20 pointer-events-auto safe-bottom transition-opacity duration-300">
+    <div class="glass-panel p-2 md:p-2.5 rounded-2xl flex items-center gap-2 max-w-sm shadow-2xl border border-white/10">
+      <label class="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500/20 to-violet-500/20 hover:from-cyan-500/30 hover:to-violet-500/30 border border-cyan-400/30 px-3.5 py-2.5 rounded-xl cursor-pointer transition">
+        <i data-lucide="upload-cloud" class="w-4 h-4 text-[#00f0ff]"></i>
+        <span class="text-xs font-semibold text-slate-100 truncate">Cargar Fotos</span>
+        <input type="file" id="image-input" multiple accept="image/*" class="hidden">
+      </label>
+      <button id="btn-open-photos" class="glass-btn px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
+        <i data-lucide="images" class="w-4 h-4 text-[#8b5cf6]"></i>
+        <span id="badge-photos-btn">0 Fotos</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Panel de Control Principal / Bottom Sheet Responsivo -->
+  <aside id="main-drawer" class="fixed inset-x-0 bottom-0 md:inset-x-auto md:right-5 md:top-20 md:bottom-auto z-40 w-full md:w-[410px] glass-panel md:rounded-3xl rounded-t-3xl transition-transform duration-300 ease-out transform translate-y-full md:translate-y-0 md:opacity-0 md:pointer-events-none max-h-[85vh] md:max-h-[82vh] flex flex-col shadow-2xl border-t md:border border-white/15 safe-bottom">
+    
+    <!-- Barra Superior del Panel -->
+    <div class="p-3 md:p-4 pb-2 border-b border-white/10 flex flex-col relative select-none">
+      <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-2 md:hidden"></div>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sliders-horizontal" class="w-4 h-4 text-[#00f0ff]"></i>
+          <span class="font-bold text-xs uppercase tracking-wider text-slate-200">Panel de Control</span>
+          <!-- Crear cuerpo celeste (desplegable junto al título) -->
+          <div>
+            <button id="btn-create-menu-toggle" type="button" class="flex items-center gap-1 pl-2 pr-2.5 py-1 rounded-full bg-gradient-to-r from-cyan-500/30 to-violet-500/30 border border-cyan-400/50 text-cyan-100 hover:text-white text-[11px] font-bold normal-case tracking-normal cursor-pointer transition active:scale-95" aria-expanded="false" aria-controls="create-menu" title="Crear cuerpo celeste">
+              <i data-lucide="plus" class="w-3.5 h-3.5 pointer-events-none"></i> Crear
+            </button>
+            <div id="create-menu" class="hidden absolute left-3 right-3 top-12 z-50 glass-panel rounded-2xl p-1.5 space-y-1.5 border border-cyan-400/40 shadow-2xl">
+              <div class="grid grid-cols-2 gap-1 p-0.5 bg-black/30 rounded-xl">
+                <button type="button" class="create-mode px-2 py-1.5 rounded-lg text-[11px] font-bold normal-case tracking-normal cursor-pointer transition" data-mode="photos">📷 Esfera de fotos</button>
+                <button type="button" class="create-mode px-2 py-1.5 rounded-lg text-[11px] font-bold normal-case tracking-normal cursor-pointer transition" data-mode="celestial">🌍 Objeto celeste</button>
+              </div>
+              <div id="create-pane-photos" class="space-y-1">
+              <button id="btn-add-star" type="button" class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-cyan-500/20 text-left cursor-pointer transition" title="Nuevo centro estelar independiente">
+                <span class="text-base">⭐</span>
+                <span class="leading-tight"><span class="block text-xs font-bold text-cyan-200">Estrella</span><span class="block text-[10px] text-slate-400">Centro gravitacional</span></span>
+              </button>
+              <button id="btn-place-star" type="button" class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-amber-500/20 text-left cursor-pointer transition" title="Haz clic en la pantalla para colocar una estrella donde quieras">
+                <span class="text-base">📍</span>
+                <span class="leading-tight"><span class="block text-xs font-bold text-amber-200">Estrella en un punto</span><span class="block text-[10px] text-slate-400">Colócala con un clic en pantalla</span></span>
+              </button>
+              <button id="btn-add-planet" type="button" class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-cyan-500/20 text-left cursor-pointer transition" title="Planeta que orbita una estrella">
+                <span class="text-base">🪐</span>
+                <span class="leading-tight"><span class="block text-xs font-bold text-cyan-300">Planeta</span><span class="block text-[10px] text-slate-400">Orbita la estrella seleccionada</span></span>
+              </button>
+              <button id="btn-add-moon" type="button" class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl hover:bg-violet-500/20 text-left cursor-pointer transition" title="Satélite que orbita un planeta">
+                <span class="text-base">🌙</span>
+                <span class="leading-tight"><span class="block text-xs font-bold text-violet-300">Satélite</span><span class="block text-[10px] text-slate-400">Orbita el planeta seleccionado</span></span>
+              </button>
+              </div>
+              <div id="create-pane-celestial" class="hidden max-h-72 overflow-y-auto pr-0.5">
+                <p class="px-1 pb-1.5 text-[10px] text-slate-400 normal-case tracking-normal">Elige un cuerpo real: se añade con su textura y su órbita según su tipo.</p>
+                <div id="celestial-grid" class="space-y-2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button id="btn-close-drawer" class="p-1.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white" title="Cerrar panel">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Selector de esferas (común a todas las pestañas, colapsable) -->
+      <div id="sphere-picker" class="mt-3 rounded-2xl bg-black/40 border border-cyan-400/30">
+        <div class="flex items-center gap-2 p-1.5">
+          <button id="picker-toggle" type="button" class="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-white/5 text-left cursor-pointer" aria-expanded="true" aria-controls="picker-body" title="Mostrar / ocultar selector de esferas">
+            <span id="picker-active-icon" class="text-base shrink-0">⭐</span>
+            <span class="min-w-0 leading-tight">
+              <span class="block text-[9px] uppercase tracking-wider text-slate-400">Esfera seleccionada · <span id="total-spheres-txt" class="text-cyan-300 font-bold">1</span> en total</span>
+              <span id="active-sphere-indicator" class="block text-xs font-bold text-cyan-200 truncate">Sol Alfa</span>
+            </span>
+            <i id="picker-chevron" data-lucide="chevron-up" class="w-4 h-4 text-slate-400 ml-auto shrink-0 pointer-events-none"></i>
+          </button>
+          <button id="btn-drawer-go-sphere" type="button" class="px-3 py-2 bg-gradient-to-r from-cyan-500/25 to-blue-500/25 hover:from-cyan-500/40 hover:to-blue-500/40 border border-cyan-400/50 text-cyan-200 hover:text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 whitespace-nowrap cursor-pointer" title="Volar y enfocar la cámara en esta esfera">
+            <i data-lucide="crosshair" class="w-3.5 h-3.5 pointer-events-none"></i>
+            <span class="hidden sm:inline">Ir</span>
+          </button>
+        </div>
+
+        <div id="picker-body" class="px-2 pb-2 space-y-2">
+          <div id="picker-filters" class="grid grid-cols-4 gap-1">
+            <button type="button" class="picker-filter py-1.5 rounded-lg text-[10px] font-semibold cursor-pointer transition" data-filter="all">Todas</button>
+            <button type="button" class="picker-filter py-1.5 rounded-lg text-[10px] font-semibold cursor-pointer transition" data-filter="star">⭐ Estrellas</button>
+            <button type="button" class="picker-filter py-1.5 rounded-lg text-[10px] font-semibold cursor-pointer transition" data-filter="planet">🪐 Planetas</button>
+            <button type="button" class="picker-filter py-1.5 rounded-lg text-[10px] font-semibold cursor-pointer transition" data-filter="moon">🌙 Satélites</button>
+          </div>
+          <div id="picker-grid" class="grid grid-cols-4 gap-1.5"></div>
+          <div id="picker-pager" class="flex items-center justify-between text-[10px] text-slate-400">
+            <button id="picker-prev" type="button" class="p-1 rounded-lg hover:bg-white/10 disabled:opacity-30 cursor-pointer" title="Página anterior"><i data-lucide="chevron-left" class="w-4 h-4 pointer-events-none"></i></button>
+            <span id="picker-page" class="font-mono">1 / 1</span>
+            <button id="picker-next" type="button" class="p-1 rounded-lg hover:bg-white/10 disabled:opacity-30 cursor-pointer" title="Página siguiente"><i data-lucide="chevron-right" class="w-4 h-4 pointer-events-none"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navegación por Pestañas -->
+      <div class="flex gap-1 mt-2.5 bg-black/40 p-1 rounded-xl border border-white/5">
+        <button class="nav-tab flex-1 py-2 px-1 text-center rounded-lg text-xs font-medium transition active-tab" data-tab="tab-spheres">Esfera</button>
+        <button class="nav-tab flex-1 py-2 px-1 text-center rounded-lg text-xs font-medium text-slate-400 hover:text-white transition" data-tab="tab-space">Espacio</button>
+        <button class="nav-tab flex-1 py-2 px-1 text-center rounded-lg text-xs font-medium text-slate-400 hover:text-white transition" data-tab="tab-mosaic">Mosaico</button>
+        <button class="nav-tab flex-1 py-2 px-1 text-center rounded-lg text-xs font-medium text-slate-400 hover:text-white transition" data-tab="tab-effects">Efectos</button>
+        <button class="nav-tab flex-1 py-2 px-1 text-center rounded-lg text-xs font-medium text-slate-400 hover:text-white transition" data-tab="tab-scene">Escena</button>
+      </div>
+    </div>
+
+    <!-- Contenido con Scroll de Pestañas -->
+    <div class="p-4 overflow-y-auto space-y-4 flex-1 text-xs">
+
+      <!-- PESTAÑA 1: ESFERAS -->
+      <section id="tab-spheres" class="tab-pane space-y-3.5">
+        <!-- Panel de Configuración de la Esfera Seleccionada -->
+        <div class="p-3.5 bg-white/5 rounded-2xl border border-white/10 space-y-3.5">
+          <div class="flex items-center gap-1.5 border-b border-white/5 pb-2">
+            <i data-lucide="disc" class="w-4 h-4 text-[#00f0ff] pointer-events-none"></i>
+            <span class="font-bold text-[#00f0ff] text-[11px] uppercase tracking-wide">Configuración de Esfera</span>
+          </div>
+
+          <!-- Nombre Personalizado de la Esfera con Tipo Integrado -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-slate-300 font-semibold text-[11px]">
+              <span>Nombre de esta Esfera:</span>
+              <span id="lbl-sphere-type-prefix" class="text-[10px] text-cyan-300 font-mono">⭐ Estrella</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span id="badge-name-prefix" class="px-2.5 py-1.5 bg-cyan-950/70 border border-cyan-400/40 rounded-xl text-xs font-bold text-cyan-200 whitespace-nowrap shadow-inner flex items-center gap-1">
+                <span id="badge-name-icon">⭐</span>
+                <span id="badge-name-text">Estrella</span>
+              </span>
+              <input id="input-sphere-name" type="text" class="flex-1 bg-black/70 border border-white/15 focus:border-cyan-400 rounded-xl px-3 py-1.5 text-xs text-white font-medium outline-none transition" placeholder="Ej. Sol Alfa, Terra, Selene...">
+            </div>
+            <p class="text-[9px] text-slate-400 italic">El tipo se mantiene automáticamente con el nombre personalizado.</p>
+          </div>
+
+          <!-- Selector de Tipo Celestial (Estrella, Planeta, Satélite) -->
+          <div class="space-y-1.5 pt-1">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-300 font-semibold block text-[11px]">Tipo de Cuerpo Celeste:</span>
+              <span id="badge-hierarchy-type" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">⭐ Estrella (Centro)</span>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <button type="button" class="btn-body-type glass-btn py-2 px-1 rounded-xl text-center font-bold text-[10px] flex flex-col items-center gap-0.5 transition cursor-pointer" data-type="star">
+                <span class="text-sm">⭐</span>
+                <span>Estrella</span>
+                <span class="text-[8px] opacity-75 font-normal">Centro Gravitacional</span>
+              </button>
+              <button type="button" class="btn-body-type glass-btn py-2 px-1 rounded-xl text-center font-bold text-[10px] flex flex-col items-center gap-0.5 transition cursor-pointer" data-type="planet">
+                <span class="text-sm">🪐</span>
+                <span>Planeta</span>
+                <span class="text-[8px] opacity-75 font-normal">Orbita Estrella</span>
+              </button>
+              <button type="button" class="btn-body-type glass-btn py-2 px-1 rounded-xl text-center font-bold text-[10px] flex flex-col items-center gap-0.5 transition cursor-pointer" data-type="moon">
+                <span class="text-sm">🌙</span>
+                <span>Satélite</span>
+                <span class="text-[8px] opacity-75 font-normal">Orbita Planeta</span>
+              </button>
+            </div>
+            <!-- Explicación dinámica del tipo activo -->
+            <div id="role-description-card" class="p-2 rounded-xl bg-cyan-950/30 border border-cyan-400/20 text-[10px] text-cyan-200 leading-relaxed">
+              ⭐ Centro gravitacional independiente. Los planetas y satélites orbitan a su alrededor.
+            </div>
+          </div>
+
+          <!-- Dimensiones y Giro Propio -->
+          <div class="space-y-2.5 pt-2 border-t border-white/5">
+            <!-- Radio 3D -->
+            <div>
+              <div class="flex justify-between mb-1.5 text-slate-300">
+                <span>Tamaño / Radio 3D:</span>
+                <span id="lbl-sphere-radius" class="font-mono text-[#00f0ff] font-bold">60 u</span>
+              </div>
+              <input type="range" id="slider-sphere-radius" min="15" max="150" step="1" value="60">
+            </div>
+
+            <!-- Velocidad de Rotación Axial -->
+            <div>
+              <div class="flex justify-between mb-1.5 text-slate-300">
+                <span>Giro propio (Velocidad):</span>
+                <span id="lbl-sphere-spin" class="font-mono text-[#00f0ff] font-bold">1.0x</span>
+              </div>
+              <input type="range" id="slider-sphere-spin" min="-3" max="3" step="0.2" value="1.0">
+            </div>
+          </div>
+
+          <!-- Jerarquía Orbital: Selección de Padre (Solo para Planetas y Satélites) -->
+          <div id="container-parent-select" class="space-y-1.5 pt-2 border-t border-white/5">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                <i data-lucide="git-branch" class="w-3.5 h-3.5 text-[#00f0ff] pointer-events-none"></i> Centro al que orbita (Padre):
+              </span>
+            </div>
+            <select id="sphere-parent" class="w-full bg-black/60 border border-white/15 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none focus:border-cyan-400 transition cursor-pointer">
+              <option value="">Centro Global (Estrella Independiente)</option>
+            </select>
+            <p id="desc-parent-helper" class="text-[10px] text-slate-400 italic">Selecciona la estrella o planeta al que debe orbitar este cuerpo.</p>
+          </div>
+
+          <!-- Mensaje Informativo para Estrella Independiente -->
+          <div id="star-independent-notice" class="hidden p-2.5 rounded-xl bg-cyan-950/20 border border-cyan-400/20 text-[10px] text-cyan-300 space-y-1">
+            <div class="font-bold flex items-center gap-1">
+              <i data-lucide="anchor" class="w-3.5 h-3.5 text-cyan-300 pointer-events-none"></i> Centro Gravitatorio Autónomo
+            </div>
+            <p class="text-slate-300 leading-relaxed">
+              Las estrellas no orbitan alrededor de otros cuerpos. Puedes añadirle planetas y satélites que sigan su órbita con los botones superiores.
+            </p>
+            <div class="grid grid-cols-2 gap-1.5 pt-1">
+              <button id="btn-toggle-move" type="button" class="glass-btn py-1.5 rounded-xl flex items-center justify-center gap-1 text-[11px] text-slate-200 hover:text-white border border-white/15 cursor-pointer transition" title="Desbloquea para arrastrarla por la pantalla">
+                <span id="move-icon">🔒</span> <span id="move-label">Mover: bloqueada</span>
+              </button>
+              <button id="btn-auto-place" type="button" class="glass-btn py-1.5 rounded-xl flex items-center justify-center gap-1 text-[11px] text-slate-200 hover:text-white border border-white/15 cursor-pointer transition" title="Vuelve a colocarla automáticamente">
+                <i data-lucide="wand-2" class="w-3.5 h-3.5 pointer-events-none"></i> Auto-colocar
+              </button>
+            </div>
+            <p id="move-hint" class="hidden text-[10px] text-amber-300">Arrastra la estrella por la pantalla para colocarla.</p>
+          </div>
+
+          <!-- Parámetros de Órbita Relativa (Distancia, Velocidad, Inclinación, Anillo) -->
+          <div id="container-orbit-controls" class="space-y-3 pt-2 border-t border-white/5">
+            <div>
+              <div class="flex justify-between mb-1.5 text-slate-300">
+                <span>Distancia Orbital (Radio de Órbita):</span>
+                <span id="lbl-orbit-radius" class="font-mono text-[#00f0ff] font-bold">150 u</span>
+              </div>
+              <input type="range" id="slider-orbit-radius" min="30" max="6000" step="10" value="150">
+            </div>
+
+            <div>
+              <div class="flex justify-between mb-1.5 text-slate-300">
+                <span>Excentricidad (0 = circular):</span>
+                <span id="lbl-orbit-ecc" class="font-mono text-[#00f0ff] font-bold">0.00</span>
+              </div>
+              <input type="range" id="slider-orbit-ecc" min="0" max="0.9" step="0.01" value="0">
+            </div>
+
+            <div>
+              <div class="flex justify-between mb-1.5 text-slate-300">
+                <span>Giro de la Elipse (Periapsis):</span>
+                <span id="lbl-orbit-peri" class="font-mono text-[#00f0ff] font-bold">0°</span>
+              </div>
+              <input type="range" id="slider-orbit-peri" min="0" max="360" step="1" value="0">
+            </div>
+
+            <div>
+              <div class="flex justify-between mb-1.5 text-slate-300">
+                <span>Giro de la Eclíptica (Nodo):</span>
+                <span id="lbl-orbit-node" class="font-mono text-[#00f0ff] font-bold">0°</span>
+              </div>
+              <input type="range" id="slider-orbit-node" min="0" max="360" step="1" value="0">
+            </div>
+
+            <div>
+              <div class="flex justify-between mb-1.5 text-slate-300">
+                <span>Velocidad de Traslación Orbital:</span>
+                <span id="lbl-orbit-speed" class="font-mono text-[#00f0ff] font-bold">0.7x</span>
+              </div>
+              <input type="range" id="slider-orbit-speed" min="-4" max="4" step="0.1" value="0.7">
+            </div>
+
+            <div>
+              <div class="flex justify-between mb-1.5 text-slate-300">
+                <span>Inclinación del Plano Orbital:</span>
+                <span id="lbl-orbit-tilt" class="font-mono text-[#00f0ff] font-bold">0°</span>
+              </div>
+              <input type="range" id="slider-orbit-tilt" min="-90" max="90" step="1" value="0">
+            </div>
+
+            <div class="flex items-center justify-between pt-1">
+              <span class="text-slate-300">Línea de Órbita (Anillo 3D):</span>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="chk-orbit-line" class="sr-only peer" checked>
+                <div class="w-10 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00f0ff]"></div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Acceso Rápido a Imágenes / Muestras -->
+          <div id="celestial-note" class="hidden p-2.5 rounded-xl bg-violet-950/30 border border-violet-400/30 space-y-2">
+            <div class="flex items-start gap-2">
+              <span id="celestial-note-icon" class="text-xl leading-none">🌍</span>
+              <div class="leading-tight">
+                <div class="font-bold text-violet-200 text-xs">Objeto celeste: <span id="celestial-note-name"></span></div>
+                <p id="celestial-note-info" class="text-[10px] text-slate-400 mt-0.5"></p>
+              </div>
+            </div>
+            <button id="btn-convert-photo-sphere" type="button" class="w-full glass-btn py-1.5 px-3 rounded-xl flex items-center justify-center gap-2 text-violet-200 hover:text-white border border-violet-400/40 text-[11px] font-medium cursor-pointer transition">
+              <i data-lucide="images" class="w-3.5 h-3.5 pointer-events-none"></i> Convertir en esfera de fotos
+            </button>
+          </div>
+          <div id="photo-actions" class="pt-1">
+            <button id="btn-view-sphere-photos" type="button" class="w-full glass-btn py-2 px-3 rounded-xl flex items-center justify-center gap-2 text-cyan-300 hover:text-white border border-cyan-400/40 bg-cyan-950/30 font-medium cursor-pointer transition">
+              <i data-lucide="images" class="w-4 h-4 text-[#8b5cf6] pointer-events-none"></i>
+              <span>Ver Fotos / Muestras de esta Esfera</span>
+            </button>
+          </div>
+
+          <!-- Botones de Acción de Esfera -->
+          <div class="grid grid-cols-3 gap-2 pt-1">
+            <button id="btn-focus-current" type="button" class="glass-btn py-2 rounded-xl flex items-center justify-center gap-1 text-slate-200 hover:text-white cursor-pointer" title="Enfocar cámara en esta esfera">
+              <i data-lucide="crosshair" class="w-3.5 h-3.5 text-[#00f0ff] pointer-events-none"></i> Enfocar
+            </button>
+            <button id="btn-dup-current" type="button" class="glass-btn py-2 rounded-xl flex items-center justify-center gap-1 text-slate-200 hover:text-white cursor-pointer" title="Duplicar esta esfera">
+              <i data-lucide="copy" class="w-3.5 h-3.5 text-emerald-400 pointer-events-none"></i> Duplicar
+            </button>
+            <button id="btn-del-current" type="button" class="glass-btn py-2 rounded-xl flex items-center justify-center gap-1 text-rose-400 hover:text-rose-300 cursor-pointer" title="Eliminar esfera">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i> Borrar
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 2: ESPACIO, DISTRIBUCIÓN Y SEPARACIÓN -->
+      <section id="tab-space" class="tab-pane space-y-4 hidden">
+        <div class="p-3 bg-cyan-950/25 border border-cyan-400/30 rounded-2xl space-y-1">
+          <p class="font-bold text-cyan-300 flex items-center gap-1.5 text-xs">
+            <i data-lucide="shield-check" class="w-4 h-4 text-[#00f0ff]"></i> Física Anti-Colisión Activa
+          </p>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Distancia mínima euclidiana: Distancia >= (Radio A + Radio B + Margen). Ningún cuerpo celeste se solapa.
+          </p>
+        </div>
+
+        <button id="btn-panel-clean-view" class="w-full glass-btn py-2.5 px-3 rounded-xl border border-cyan-400/60 bg-cyan-950/40 text-[#00f0ff] font-bold flex items-center justify-center gap-2 shadow-lg hover:bg-cyan-900/40">
+          <i data-lucide="maximize" class="w-4 h-4"></i>
+          <span>Activar Vista Limpia Global</span>
+        </button>
+
+        <!-- Slider de Separación Directa -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-slate-200 font-semibold mb-1">
+            <span>Separación entre esferas:</span>
+            <span id="lbl-space-margin" class="font-mono text-[#00f0ff] font-bold">50 u</span>
+          </div>
+          <input type="range" id="slider-space-margin" min="15" max="250" step="5" value="50">
+          <div class="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+            <span>Compacto (15u)</span>
+            <span>Esparcido (250u)</span>
+          </div>
+        </div>
+
+        <!-- Velocidad General del Universo (Traslación + Rotación) -->
+        <div class="space-y-2 pt-2 border-t border-white/5 bg-amber-950/20 p-2.5 rounded-xl border border-amber-400/20">
+          <div class="flex justify-between items-center text-slate-200 font-semibold">
+            <span class="flex items-center gap-1.5 text-amber-200">
+              <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i> Velocidad General de Todo:
+            </span>
+            <span id="lbl-universe-speed" class="font-mono text-amber-300 font-bold bg-black/60 px-2 py-0.5 rounded border border-amber-400/40 text-xs">1.0x</span>
+          </div>
+          <input type="range" id="slider-universe-speed" min="0.1" max="5.0" step="0.1" value="1.0">
+          <div class="flex justify-between gap-1 pt-1">
+            <button type="button" class="btn-speed-preset flex-1 py-1 rounded bg-white/5 hover:bg-white/10 text-[10px] font-mono text-slate-300 transition cursor-pointer" data-speed="0.25">0.25x</button>
+            <button type="button" class="btn-speed-preset flex-1 py-1 rounded bg-white/5 hover:bg-white/10 text-[10px] font-mono text-slate-300 transition cursor-pointer" data-speed="0.5">0.5x</button>
+            <button type="button" class="btn-speed-preset flex-1 py-1 rounded bg-amber-500/25 text-amber-300 border border-amber-400/50 text-[10px] font-mono font-bold transition cursor-pointer" data-speed="1.0">1x</button>
+            <button type="button" class="btn-speed-preset flex-1 py-1 rounded bg-white/5 hover:bg-white/10 text-[10px] font-mono text-slate-300 transition cursor-pointer" data-speed="2.0">2x</button>
+            <button type="button" class="btn-speed-preset flex-1 py-1 rounded bg-white/5 hover:bg-white/10 text-[10px] font-mono text-slate-300 transition cursor-pointer" data-speed="4.0">4x</button>
+          </div>
+        </div>
+
+        <!-- Modos de Distribución 3D -->
+        <div class="space-y-2 pt-2 border-t border-white/5">
+          <label class="font-semibold text-slate-300 block">Distribución del universo:</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="layout-mode-btn glass-btn p-2.5 rounded-xl text-left col-span-2" data-mode="custom">
+              <div class="font-bold flex items-center gap-1.5 text-xs"><i data-lucide="hand" class="w-3.5 h-3.5"></i> Personalizado</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Tú colocas cada sistema arrastrándolo</div>
+            </button>
+            <button class="layout-mode-btn glass-btn p-2.5 rounded-xl text-left border-cyan-400/80 text-cyan-300" data-mode="organic">
+              <div class="font-bold flex items-center gap-1.5 text-xs"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Flotante Libre</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Física de repulsión</div>
+            </button>
+            <button class="layout-mode-btn glass-btn p-2.5 rounded-xl text-left" data-mode="orbit">
+              <div class="font-bold flex items-center gap-1.5 text-xs"><i data-lucide="orbit" class="w-3.5 h-3.5"></i> Anillo Orbital</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Sistema circular 360°</div>
+            </button>
+            <button class="layout-mode-btn glass-btn p-2.5 rounded-xl text-left" data-mode="line">
+              <div class="font-bold flex items-center gap-1.5 text-xs"><i data-lucide="align-horizontal-distribute-center" class="w-3.5 h-3.5"></i> Fila Horizontal</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Línea planetaria</div>
+            </button>
+            <button class="layout-mode-btn glass-btn p-2.5 rounded-xl text-left" data-mode="constellation">
+              <div class="font-bold flex items-center gap-1.5 text-xs"><i data-lucide="share-2" class="w-3.5 h-3.5"></i> Constelación</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Capas galácticas</div>
+            </button>
+            <button class="layout-mode-btn glass-btn p-2.5 rounded-xl text-left" data-mode="spiral">
+              <div class="font-bold flex items-center gap-1.5 text-xs"><i data-lucide="tornado" class="w-3.5 h-3.5"></i> Espiral</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Brazo galáctico</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filamentos Estelares -->
+        <div class="flex items-center justify-between pt-2 border-t border-white/5">
+          <span class="text-slate-300">Líneas de conexión (Constelación):</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="chk-constellations" class="sr-only peer" checked>
+            <div class="w-10 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00f0ff]"></div>
+          </label>
+        </div>
+
+        <!-- Rastros de Órbitas Globales -->
+        <div class="flex items-center justify-between pt-2 border-t border-white/5">
+          <span class="text-slate-300">Rastros de órbita (Todos los anillos):</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="chk-all-orbit-lines" class="sr-only peer" checked>
+            <div class="w-10 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00f0ff]"></div>
+          </label>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 3: FORMAS GEOMÉTRICAS Y MOSAICO -->
+      <section id="tab-mosaic" class="tab-pane space-y-3.5 hidden">
+        <div class="space-y-1.5">
+          <label class="font-semibold text-slate-300 block">Forma de Recorte de Fotos (9 Formas):</label>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button data-shape="rect" class="shape-selector glass-btn py-2 px-1 rounded-xl text-center font-medium border-cyan-400/80 text-cyan-300">Rectángulo</button>
+            <button data-shape="rounded" class="shape-selector glass-btn py-2 px-1 rounded-xl text-center font-medium">Borde Suave</button>
+            <button data-shape="circle" class="shape-selector glass-btn py-2 px-1 rounded-xl text-center font-medium">Círculo</button>
+            <button data-shape="hexagon" class="shape-selector glass-btn py-2 px-1 rounded-xl text-center font-medium">Hexágono</button>
+            <button data-shape="octagon" class="shape-selector glass-btn py-2 px-1 rounded-xl text-center font-medium">Octógono</button>
+            <button data-shape="diamond" class="shape-selector glass-btn py-2 px-1 rounded-xl text-center font-medium">Diamante</button>
+            <button data-shape="triangle" class="shape-selector glass-btn py-2 px-1 rounded-xl text-center font-medium">Triángulo ▲</button>
+            <button data-shape="triangle-inv" class="shape-selector glass-btn py-2 px-1 rounded-xl text-center font-medium">Triángulo ▼</button>
+            <button data-shape="star" class="shape-selector glass-btn py-2 px-1 rounded-xl text-center font-medium">Estrella ★</button>
+          </div>
+        </div>
+
+        <!-- Escala Interna de la Foto -->
+        <div class="space-y-1.5 pt-2 border-t border-white/5">
+          <div class="flex justify-between text-slate-300">
+            <span>Escala interior de la forma:</span>
+            <span id="lbl-shape-scale" class="font-mono text-[#00f0ff] font-bold">100%</span>
+          </div>
+          <input type="range" id="slider-shape-scale" min="40" max="100" step="2" value="100">
+        </div>
+
+        <!-- Marco Exterior -->
+        <div class="space-y-2 pt-2 border-t border-white/5">
+          <div class="flex justify-between text-slate-300">
+            <span>Grosor de marco:</span>
+            <span id="lbl-shape-stroke" class="font-mono text-[#00f0ff] font-bold">0 px</span>
+          </div>
+          <input type="range" id="slider-shape-stroke" min="0" max="10" step="1" value="0">
+
+          <div class="flex items-center justify-between">
+            <span class="text-slate-300">Color del marco:</span>
+            <div class="flex items-center gap-2">
+              <input type="color" id="picker-stroke-color" value="#00f0ff">
+              <span id="lbl-stroke-val" class="font-mono text-[10px] text-slate-400 uppercase">#00f0ff</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Columnas y Filas -->
+        <div class="space-y-3 pt-2 border-t border-white/5">
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1">
+              <span>Columnas (Horizontal 360°):</span>
+              <span id="lbl-grid-cols" class="font-mono text-[#00f0ff] font-bold">12</span>
+            </div>
+            <input type="range" id="slider-grid-cols" min="6" max="24" step="1" value="12">
+          </div>
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1">
+              <span>Filas (Polo a Polo):</span>
+              <span id="lbl-grid-rows" class="font-mono text-[#00f0ff] font-bold">6</span>
+            </div>
+            <input type="range" id="slider-grid-rows" min="3" max="12" step="1" value="6">
+          </div>
+        </div>
+
+        <!-- Hendidura / Cell Gap -->
+        <div class="space-y-2 pt-2 border-t border-white/5">
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1">
+              <span>Separación interna (Cell Gap):</span>
+              <span id="lbl-cell-gap" class="font-mono text-[#00f0ff] font-bold">4 px</span>
+            </div>
+            <input type="range" id="slider-cell-gap" min="0" max="20" step="1" value="4">
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-300">Color de fondo / hendidura:</span>
+            <div class="flex items-center gap-2">
+              <input type="color" id="picker-grid-color" value="#080a11">
+              <span id="lbl-grid-val" class="font-mono text-[10px] text-slate-400 uppercase">#080a11</span>
+            </div>
+          </div>
+          <label class="flex items-center justify-between cursor-pointer">
+            <span class="text-slate-300">Fondo transparente (ver a través de los huecos):</span>
+            <input type="checkbox" id="chk-grid-transparent" class="h-4 w-4 accent-[#00f0ff]">
+          </label>
+        </div>
+      </section>
+
+      <!-- PESTAÑA: EFECTOS (esfera y escenario) -->
+      <section id="tab-effects" class="tab-pane space-y-3.5 hidden">
+        <div class="p-3.5 bg-white/5 rounded-2xl border border-white/10 space-y-3">
+          <div class="flex items-center justify-between border-b border-white/5 pb-2">
+            <span class="font-bold text-[#00f0ff] flex items-center gap-1.5">✨ Efectos de la esfera</span>
+            <span id="fx-sphere-name" class="text-[10px] text-slate-400 truncate max-w-[50%]"></span>
+          </div>
+          <div id="fx-presets" class="flex flex-wrap gap-1.5"></div>
+          <div id="fx-sphere-controls" class="space-y-2"></div>
+        </div>
+        <div class="p-3.5 bg-white/5 rounded-2xl border border-white/10 space-y-3">
+          <div class="flex items-center gap-1.5 border-b border-white/5 pb-2">
+            <span class="font-bold text-[#00f0ff] flex items-center gap-1.5">🌠 Efectos del escenario</span>
+          </div>
+          <p class="text-[10px] text-slate-400 leading-snug">Se repiten solos cada cierto tiempo. Usa "Probar" para verlos ahora.</p>
+          <div id="fx-scene-controls" class="space-y-2"></div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 4: ESCENA, MATERIALES Y ESTILO -->
+      <section id="tab-scene" class="tab-pane space-y-3.5 hidden">
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-300 font-semibold">Fondo del Universo 3D:</span>
+            <input type="color" id="picker-bg-color" value="#080a11">
+          </div>
+          <div class="grid grid-cols-4 gap-1.5 pt-1">
+            <button class="theme-btn py-1.5 rounded-lg bg-[#080a11] border border-white/20 text-[10px]" data-bg="#080a11" data-grid="#000000">Espacio</button>
+            <button class="theme-btn py-1.5 rounded-lg bg-[#0d162f] border border-cyan-400/40 text-[10px]" data-bg="#0d162f" data-grid="#00f0ff">Cyber</button>
+            <button class="theme-btn py-1.5 rounded-lg bg-[#1f0f29] border border-violet-500/40 text-[10px]" data-bg="#1f0f29" data-grid="#8b5cf6">Nebulosa</button>
+            <button class="theme-btn py-1.5 rounded-lg bg-[#cbd5e1] text-slate-900 font-bold border border-slate-300 text-[10px]" data-bg="#cbd5e1" data-grid="#ffffff">Estudio</button>
+          </div>
+        </div>
+
+        <!-- Iluminación y Material -->
+        <div class="space-y-3 pt-2 border-t border-white/5">
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1">
+              <span>Intensidad Lumínica:</span>
+              <span id="lbl-light-intensity" class="font-mono text-[#00f0ff] font-bold">1.0</span>
+            </div>
+            <input type="range" id="slider-light-intensity" min="0.2" max="2.5" step="0.1" value="1.0">
+          </div>
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1">
+              <span>Rugosidad (PBR Roughness):</span>
+              <span id="lbl-roughness" class="font-mono text-[#00f0ff] font-bold">0.30</span>
+            </div>
+            <input type="range" id="slider-roughness" min="0.0" max="1.0" step="0.05" value="0.3">
+          </div>
+        </div>
+
+        <!-- Wireframe & Partículas -->
+        <div class="flex items-center justify-between pt-2 border-t border-white/5">
+          <span class="text-slate-300">Modo Malla 3D (Wireframe):</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="chk-wireframe" class="sr-only peer">
+            <div class="w-10 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00f0ff]"></div>
+          </label>
+        </div>
+
+        <div class="flex items-center justify-between pt-2 border-t border-white/5">
+          <span class="text-slate-300">Polvo Estelar (Partículas):</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="chk-stars" class="sr-only peer" checked>
+            <div class="w-10 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#00f0ff]"></div>
+          </label>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <!-- MODAL DE UNIVERSOS -->
+  <div id="universe-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-4 opacity-0 pointer-events-none transition-opacity duration-200" role="dialog" aria-modal="true">
+    <div class="glass-panel w-full md:max-w-2xl rounded-t-3xl md:rounded-3xl p-5 max-h-[88vh] flex flex-col gap-3.5 safe-bottom">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="folder-open" class="w-4 h-4 text-emerald-300"></i>
+          <h2 class="font-bold text-sm text-white">Universos</h2>
+        </div>
+        <button id="btn-close-universe-modal" class="p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white" title="Cerrar">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="rounded-2xl border border-emerald-400/30 bg-emerald-950/20 p-3 space-y-2.5">
+        <div class="text-[10px] uppercase tracking-widest text-emerald-300/80 font-bold">Universo actual</div>
+        <div class="flex gap-2">
+          <input id="universe-name-input" type="text" maxlength="60" class="flex-1 min-w-0 bg-black/50 border border-white/15 focus:border-emerald-400/70 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" placeholder="Nombre del universo" />
+          <button id="btn-universe-save" class="px-3 py-2 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/40 border border-emerald-400/60 text-emerald-100 text-xs font-bold flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="save" class="w-3.5 h-3.5 pointer-events-none"></i> Guardar
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button id="btn-universe-save-as" class="px-2.5 py-1.5 rounded-lg glass-btn text-[11px] text-slate-200 flex items-center gap-1.5 cursor-pointer"><i data-lucide="copy-plus" class="w-3.5 h-3.5 pointer-events-none"></i> Guardar como copia</button>
+          <button id="btn-universe-new" class="px-2.5 py-1.5 rounded-lg glass-btn text-[11px] text-slate-200 flex items-center gap-1.5 cursor-pointer"><i data-lucide="file-plus" class="w-3.5 h-3.5 pointer-events-none"></i> Nuevo universo</button>
+          <button id="btn-universe-export" class="px-2.5 py-1.5 rounded-lg glass-btn text-[11px] text-slate-200 flex items-center gap-1.5 cursor-pointer"><i data-lucide="download" class="w-3.5 h-3.5 pointer-events-none"></i> Exportar JSON</button>
+          <button id="btn-universe-import" class="px-2.5 py-1.5 rounded-lg glass-btn text-[11px] text-slate-200 flex items-center gap-1.5 cursor-pointer"><i data-lucide="upload" class="w-3.5 h-3.5 pointer-events-none"></i> Importar JSON</button>
+          <input id="universe-import-file" type="file" accept=".json,application/json" class="hidden" />
+        </div>
+        <label class="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer select-none">
+          <input id="chk-universe-autosave" type="checkbox" class="accent-emerald-400" />
+          Guardado automático (solo en universos ya guardados)
+        </label>
+      </div>
+
+      <div class="flex items-center justify-between">
+        <div class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Universos guardados</div>
+        <span id="universe-list-count" class="text-[10px] text-slate-500"></span>
+      </div>
+      <div id="universe-list" class="overflow-y-auto space-y-2 pr-1 min-h-[80px]"></div>
+      <p class="text-[10px] text-slate-500 leading-snug">Se guardan en este navegador (almacenamiento local, sin servidor). Usa Exportar JSON para hacer copias o moverlos a otro equipo.</p>
+    </div>
+  </div>
+
+  <!-- MODAL DE CARRETE DE FOTOS -->
+  <div id="photos-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-4 opacity-0 pointer-events-none transition-opacity duration-200" role="dialog" aria-modal="true">
+    <div class="glass-panel w-full md:max-w-xl rounded-t-3xl md:rounded-3xl p-5 max-h-[85vh] flex flex-col space-y-3.5 safe-bottom">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="images" class="w-4 h-4 text-[#00f0ff]"></i>
+          <h2 class="font-bold text-sm text-white">Carrete de Fotos · <span id="photos-modal-sphere-name" class="text-[#00f0ff]">Esfera</span></h2>
+        </div>
+        <button id="btn-close-photos-modal" class="p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white" title="Cerrar carrete">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between text-xs text-slate-400">
+        <span>Toca cualquier foto para inspeccionar en HD</span>
+        <button id="btn-reset-to-sample-photos" class="text-rose-400 hover:text-rose-300 flex items-center gap-1 font-medium">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Restaurar muestras
+        </button>
+      </div>
+
+      <div id="modal-thumbnails-grid" class="grid grid-cols-4 sm:grid-cols-5 gap-2 overflow-y-auto max-h-72 p-1"></div>
+    </div>
+  </div>
+
+  <!-- LIGHTBOX / INSPECTOR UV HD TÁCTIL -->
+  <div id="lightbox-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-lg flex items-center justify-center p-3 md:p-6 opacity-0 pointer-events-none transition-opacity duration-200 safe-top safe-bottom" role="dialog" aria-modal="true">
+    <div class="relative w-full max-w-xl glass-panel p-4 rounded-3xl flex flex-col items-center">
+      <button id="btn-close-lightbox" class="absolute -top-3 -right-3 bg-slate-800 text-white rounded-full p-2.5 border border-slate-600 hover:bg-rose-600 transition shadow-2xl" title="Cerrar inspector">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="w-full flex items-center justify-between mb-3 px-1 text-xs">
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-[#00f0ff] shadow-[0_0_8px_#00f0ff]"></div>
+          <span id="lightbox-title" class="font-bold text-white text-sm">Detalle de Foto</span>
+        </div>
+        <span id="lightbox-meta" class="font-mono text-cyan-400 text-[11px]"></span>
+      </div>
+
+      <div class="relative w-full max-h-[65vh] flex items-center justify-center overflow-hidden rounded-2xl bg-black/70 border border-white/10 p-1">
+        <img id="lightbox-img" src="" alt="Inspección" class="max-h-[60vh] w-auto object-contain rounded-xl shadow-2xl">
+        <button id="btn-lightbox-prev" type="button" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-cyan-500/40 text-white rounded-full p-2.5 border border-white/20 cursor-pointer" title="Foto anterior (←)">
+          <i data-lucide="chevron-left" class="w-5 h-5 pointer-events-none"></i>
+        </button>
+        <button id="btn-lightbox-next" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-cyan-500/40 text-white rounded-full p-2.5 border border-white/20 cursor-pointer" title="Foto siguiente (→)">
+          <i data-lucide="chevron-right" class="w-5 h-5 pointer-events-none"></i>
+        </button>
+      </div>
+
+      <div class="w-full flex items-center justify-center gap-3 mt-3 text-xs">
+        <button id="btn-lightbox-play" type="button" class="glass-btn px-4 py-2 rounded-full flex items-center gap-2 text-slate-100 cursor-pointer" title="Reproducir presentación (espacio)">
+          <i data-lucide="play" class="w-4 h-4 text-[#00f0ff] pointer-events-none"></i>
+          <span id="lightbox-play-label">Reproducir</span>
+        </button>
+        <span id="lightbox-counter" class="font-mono text-slate-400 text-[11px]"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTIFICACIÓN TOAST TÁCTIL -->
+  <div id="toast-notify" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 glass-panel text-white text-xs px-4 py-2.5 rounded-full border border-cyan-400/40 shadow-2xl opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-2">
+    <i data-lucide="info" class="w-4 h-4 text-[#00f0ff]"></i>
+    <span id="toast-text">Mensaje</span>
+  </div>
+
+  <!-- JavaScript Entry Point (ES6 Native Modules) -->
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

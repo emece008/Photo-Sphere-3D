@@ -1,0 +1,63 @@
+/**
+ * Photo Sphere Studio 3D - Universal Orbital Engine
+ * components.css: Floating Action Bars (FAB), Modals, Lightbox HD & Toast Notifications
+ */
+
+/* Floating Quick Action Bar (FAB) */
+#quick-action-bar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.2s ease,
+              border-color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+#quick-action-bar button:active {
+  transform: scale(0.92);
+}
+
+/* Lightbox Modal HD */
+#lightbox-modal {
+  transition: opacity 0.25s ease-out, visibility 0.25s ease-out;
+}
+
+#lightbox-modal .glass-panel {
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 240, 255, 0.15);
+}
+
+/* Photos Gallery Drawer/Modal */
+#photos-modal {
+  transition: opacity 0.25s ease-out, visibility 0.25s ease-out;
+}
+
+#modal-thumbnails-grid img {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+}
+
+#modal-thumbnails-grid img:hover {
+  transform: scale(1.04);
+  border-color: var(--brand-cyan);
+}
+
+/* Floating Clean View Exit Pill */
+#btn-exit-clean-mode button {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(13, 17, 29, 0.88);
+}
+
+/* Toast Notifications */
+#toast-notify {
+  pointer-events: none;
+  transform: translate(-50%, 0);
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#toast-notify.opacity-0 {
+  transform: translate(-50%, -12px);
+}

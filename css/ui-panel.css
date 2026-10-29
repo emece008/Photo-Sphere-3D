@@ -1,0 +1,68 @@
+/**
+ * Photo Sphere Studio 3D - Universal Orbital Engine
+ * ui-panel.css: Responsive Control Panel (Desktop Floating Glass / Mobile Bottom-Sheet)
+ */
+
+/* Glassmorphism Containers */
+.glass-panel {
+  background: var(--brand-glass);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--brand-glass-border);
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+.glass-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(0, 240, 255, 0.6);
+  color: var(--brand-cyan);
+}
+
+.glass-btn:active {
+  transform: scale(0.96);
+}
+
+.glass-btn.active-tab,
+.nav-tab.active-tab {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(139, 92, 246, 0.2));
+  border-color: var(--brand-cyan);
+  color: var(--brand-cyan);
+  box-shadow: 0 0 16px var(--brand-glass-glow);
+}
+
+/* Color Picker Styling */
+input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: transparent;
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+}
+
+/* Shape and Layout Selector Buttons */
+.shape-selector.border-cyan-400\/80,
+.layout-mode-btn.border-cyan-400\/80 {
+  border-color: rgba(0, 240, 255, 0.8) !important;
+  color: var(--brand-cyan) !important;
+  background: rgba(0, 240, 255, 0.12) !important;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+}

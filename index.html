@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Photo Sphere Studio 3D</title>
+
+  <!-- Modo app (pantalla completa sin barra de URL al instalar / añadir a inicio) -->
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#040711">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Photo Sphere">
+  <link rel="icon" type="image/png" href="./icons/icon-192.png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <meta name="description" content="Simulador de universo fotográfico 3D orbital con física anti-colisión, texturizado procedural en alta resolución y modo Zen inmersivo.">
 
   <!-- Tailwind CSS Engine -->
@@ -130,6 +140,11 @@
     <!-- Repulsión Anti-Colisión -->
     <button id="btn-quick-repel" class="glass-panel p-3 rounded-full text-amber-400 hover:bg-amber-500/20 shadow-xl cursor-pointer" title="Forzar Relajación Anti-Colisión">
       <i data-lucide="sparkles" class="w-5 h-5 pointer-events-none"></i>
+    </button>
+    <!-- Pantalla completa (oculta la barra de URL) -->
+    <button id="btn-quick-fullscreen" class="glass-panel p-3 rounded-full text-sky-300 border-sky-400/40 hover:bg-sky-500/20 shadow-xl transition cursor-pointer active:scale-95" title="Pantalla completa / modo app">
+      <i data-lucide="maximize" class="w-5 h-5 pointer-events-none" id="icon-fs-on"></i>
+      <i data-lucide="minimize" class="w-5 h-5 hidden pointer-events-none" id="icon-fs-off"></i>
     </button>
     <!-- Alternar Líneas de Guías Cósmicas (Órbitas y Conexiones) -->
     <button id="btn-quick-orbit-lines" class="glass-panel p-3 rounded-full text-[#00f0ff] border-cyan-400/60 bg-cyan-950/20 hover:bg-cyan-500/20 shadow-xl transition cursor-pointer" title="Mostrar / Ocultar Guías Cósmicas (Órbitas y Conexiones)">

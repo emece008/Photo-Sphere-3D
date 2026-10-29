@@ -332,6 +332,41 @@ export class PhotoSphereApp {
     this.zenMode.frameAllSpheres();
   }
 
+  /** Pantalla completa (oculta la barra de URL). En iPhone, que no la soporta, guía a "Añadir a inicio". */
+  initFullscreenButton() {
+    const btn = document.getElementById('btn-quick-fullscreen');
+    if (!btn) return;
+    const root = document.documentElement;
+    const request = root.requestFullscreen || root.webkitRequestFullscreen;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+    const standalone = window.matchMedia('(display-mode: standalone)').matches
+      || window.matchMedia('(display-mode: fullscreen)').matches
+      || window.navigator.standalone;
+
+    if (standalone) { btn.classList.add('hidden'); return; }
+
+    const sync = () => {
+      document.getElementById('icon-fs-on').classList.toggle('hidden', isFs());
+      document.getElementById('icon-fs-off').classList.toggle('hidden', !isFs());
+    };
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+
+    btn.addEventListener('click', () => {
+      if (!request) {
+        this.uiManager.notify('📱 En iPhone: Compartir → "Añadir a pantalla de inicio" para abrirlo como app a pantalla completa', 6000);
+        return;
+      }
+      if (isFs()) {
+        exit.call(document);
+      } else {
+        const p = request.call(root, { navigationUI: 'hide' });
+        if (p && p.catch) p.catch(() => this.uiManager.notify('No se pudo activar la pantalla completa'));
+      }
+    });
+  }
+
   /**
    * Spawns a preconfigured, beautifully balanced Solar System demonstration.
    */
@@ -930,6 +965,8 @@ export class PhotoSphereApp {
       this.physics.recalculateLayout(this.spheres, this.config.layoutMode, this.config.sphereMargin);
       this.uiManager.notify('Separación recalculada');
     });
+
+    this.initFullscreenButton();
 
     // Botón Rápido Mostrar/Ocultar Guías Cósmicas (Órbitas y Conexiones)
     if (dom.btnQuickOrbitLines) {

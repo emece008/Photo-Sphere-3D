@@ -8,6 +8,7 @@ import { CELESTIAL_CATALOG, getCelestialDef, paintCelestialTexture } from '../en
 import { createDefaultFx } from '../effects/SphereFX.js';
 import { createDefaultSceneFx } from '../effects/SceneFX.js';
 import { formatBytes } from '../persistence/UniverseStore.js';
+import { UNIVERSE_TEMPLATES } from '../config/templates.js';
 
 export class UIManager {
   constructor() {
@@ -97,6 +98,7 @@ export class UIManager {
       containerOrbitControls: document.getElementById('container-orbit-controls'),
       sliderOrbitRadius: document.getElementById('slider-orbit-radius'),
       lblOrbitRadius: document.getElementById('lbl-orbit-radius'),
+      numOrbitRadius: document.getElementById('num-orbit-radius'),
       sliderOrbitSpeed: document.getElementById('slider-orbit-speed'),
       lblOrbitSpeed: document.getElementById('lbl-orbit-speed'),
       sliderOrbitTilt: document.getElementById('slider-orbit-tilt'),
@@ -205,7 +207,28 @@ export class UIManager {
     const defaults = createDefaultFx();
     const sceneDefaults = createDefaultSceneFx();
 
+    const ringFields = () => [
+      { k: 'inner', label: 'Radio interior', min: 1.1, max: 8, step: 0.05, fmt: v => `${v.toFixed(2)}x` },
+      { k: 'width', label: 'Anchura', min: 0.1, max: 4, step: 0.05, fmt: v => `${v.toFixed(2)}x` },
+      { k: 'thickness', label: 'Grosor vertical', min: 0, max: 1, step: 0.01, fmt: v => `${Math.round(v * 100)}%` },
+      { k: 'count', label: 'Rocas', min: 0, max: 3000, step: 50, fmt: v => `${v}` },
+      { k: 'size', label: 'Tamaño rocas', min: 0.2, max: 4, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
+      { k: 'sizeVar', label: 'Variación', min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
+      { k: 'dust', label: 'Polvo fino', min: 0, max: 6000, step: 100, fmt: v => `${v}` },
+      { k: 'dustSize', label: 'Tamaño polvo', min: 0.3, max: 4, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
+      { k: 'gaps', label: 'Huecos', min: 0, max: 5, step: 1, fmt: v => `${v}` },
+      { k: 'tilt', label: 'Inclinación', min: -90, max: 90, step: 1, fmt: v => `${v}°` },
+      { k: 'node', label: 'Giro del plano', min: 0, max: 360, step: 5, fmt: v => `${v}°` },
+      { k: 'speed', label: 'Velocidad', min: -3, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
+      { k: 'tumble', label: 'Giro rocas', min: 0, max: 4, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
+      { k: 'color', type: 'color', label: 'Color' },
+      { k: 'color2', type: 'color', label: 'Color 2' },
+      { k: 'colorVar', label: 'Variación color', min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` }
+    ];
+    const ringPresets = [['asteroids', '🪨 Asteroides'], ['saturn', '🪐 Saturno'], ['ice', '🧊 Hielo'], ['ember', '🔥 Brasas']];
+
     const sphereSections = [
+      { key: 'rings', title: '🪐 Anillo de asteroides', presets: ringPresets, fields: ringFields() },
       { key: 'aura', title: '✨ Halo / resplandor', fields: [
         { k: 'color', type: 'color', label: 'Color' },
         { k: 'size', label: 'Tamaño', min: 1.2, max: 6, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
@@ -279,13 +302,13 @@ export class UIManager {
     const build = (box, sections, store, scope, withTest) => {
       sections.forEach(sec => {
         const card = document.createElement('div');
-        card.className = 'rounded-xl border border-white/10 bg-black/20 overflow-hidden';
+        card.className = `fx-card-${sec.key} rounded-xl border border-white/10 bg-black/20 overflow-hidden`;
         const onId = `fx-${scope}-${sec.key}-on`;
         card.innerHTML = `
           <div class="flex items-center justify-between gap-2 px-3 py-2">
             <span class="font-semibold text-slate-200">${sec.title}</span>
             <div class="flex items-center gap-2">
-              ${withTest ? `<button type="button" data-test="${sec.key}" class="px-2 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/40 border border-cyan-400/40 text-[10px] font-bold text-cyan-100">▶ Probar</button>` : ''}
+              ${withTest && !sec.noTest ? `<button type="button" data-test="${sec.key}" class="px-2 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/40 border border-cyan-400/40 text-[10px] font-bold text-cyan-100">▶ Probar</button>` : ''}
               ${toggleHtml(onId)}
             </div>
           </div>
@@ -301,11 +324,29 @@ export class UIManager {
         onInput.addEventListener('change', () => { emit('on', onInput.checked); showBody(); });
 
         const entry = { sec, onInput, showBody, fields: [] };
+        if (sec.presets) {
+          const pr = document.createElement('div');
+          pr.className = 'flex flex-wrap gap-1.5';
+          sec.presets.forEach(([id, text]) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'px-2 py-1 rounded-lg bg-white/5 hover:bg-cyan-500/20 border border-white/10 hover:border-cyan-400/50 text-[10px] font-semibold text-slate-200 transition';
+            b.textContent = text;
+            b.addEventListener('click', () => this.emit('ringPreset', { scope, name: id }));
+            pr.appendChild(b);
+          });
+          body.appendChild(pr);
+        }
         sec.fields.forEach(f => {
           const row = document.createElement('div');
           row.className = 'flex items-center gap-2';
           const label = `<span class="text-slate-300 w-24 shrink-0">${f.label}</span>`;
-          if (f.type === 'color') {
+          if (f.type === 'select') {
+            row.innerHTML = `${label}<select class="flex-1 min-w-0 bg-slate-800 text-slate-100 rounded-lg px-2 py-1 border border-white/10">${f.options.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>`;
+            const input = row.querySelector('select');
+            input.addEventListener('change', () => emit(f.k, input.value));
+            entry.fields.push({ f, input });
+          } else if (f.type === 'color') {
             row.innerHTML = `${label}<input type="color" class="h-7 w-12 rounded cursor-pointer bg-transparent">`;
             const input = row.querySelector('input');
             input.addEventListener('input', () => emit(f.k, input.value));
@@ -328,7 +369,7 @@ export class UIManager {
           }
           body.appendChild(row);
         });
-        if (withTest) card.querySelector('[data-test]').addEventListener('click', () => this.emit('sceneFxTest', sec.key));
+        if (withTest && !sec.noTest) card.querySelector('[data-test]').addEventListener('click', () => this.emit('sceneFxTest', sec.key));
         store.push(entry);
         box.appendChild(card);
       });
@@ -364,7 +405,7 @@ export class UIManager {
       entry.fields.forEach(({ f, input, out }) => {
         const v = cfg[f.k];
         if (f.type === 'check') input.checked = !!v;
-        else if (f.type === 'color') input.value = v;
+        else if (f.type === 'color' || f.type === 'select') input.value = v;
         else {
           input.value = v;
           out.textContent = f.fmt(parseFloat(v));
@@ -373,11 +414,69 @@ export class UIManager {
     });
   }
 
-  syncFxControls(sphere) {
+  syncFxControls(sphere, allSpheres) {
     if (!sphere || !this.fxSphereInputs) return;
+    if (allSpheres) this.allSpheresRef = allSpheres;
     this.fillFxInputs(this.fxSphereInputs, sphere.fx);
     const name = document.getElementById('fx-sphere-name');
     if (name) name.textContent = `${sphere.getTypeIcon()} ${sphere.name}`;
+    this.syncRingsPanel(sphere, this.allSpheresRef || []);
+  }
+
+  /** Panel de la pestaña Esfera: activar, editar, mover el anillo y localizar otros anillos del universo. */
+  syncRingsPanel(sphere, allSpheres) {
+    const panel = document.getElementById('rings-panel');
+    if (!panel) return;
+    if (!this.ringsPanelBound) {
+      this.ringsPanelBound = true;
+      document.getElementById('chk-ring-on').addEventListener('change', (e) => this.emit('fxChange', { effect: 'rings', key: 'on', value: e.target.checked }));
+      document.getElementById('btn-ring-edit').addEventListener('click', () => {
+        this.switchToTab('tab-effects');
+        const card = document.querySelector('#fx-sphere-controls .fx-card-rings');
+        if (card) card.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      });
+      document.getElementById('btn-ring-move').addEventListener('click', () => {
+        const to = document.getElementById('ring-move-select').value;
+        if (to) this.emit('moveRing', { toId: to });
+      });
+    }
+    const on = !!sphere.fx.rings.on;
+    document.getElementById('chk-ring-on').checked = on;
+    document.getElementById('ring-panel-desc').textContent = on
+      ? 'Este cuerpo tiene un anillo. Edita todos sus ajustes en la pestaña Efectos o muévelo a otra esfera.'
+      : 'Activa el interruptor para añadir un anillo o cinturón de asteroides a este cuerpo.';
+    document.getElementById('ring-panel-actions').classList.toggle('hidden', !on);
+
+    const sel = document.getElementById('ring-move-select');
+    const targets = allSpheres.filter(o => o.id !== sphere.id && !o.fx.rings.on);
+    sel.innerHTML = '';
+    targets.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.id;
+      opt.textContent = `Mover a: ${o.getTypeIcon()} ${o.name}`;
+      sel.appendChild(opt);
+    });
+    if (!targets.length) sel.innerHTML = '<option value="">No hay esferas libres</option>';
+    sel.disabled = !targets.length;
+    document.getElementById('btn-ring-move').disabled = !targets.length;
+
+    const box = document.getElementById('rings-others');
+    box.innerHTML = '';
+    const others = allSpheres.filter(o => o.id !== sphere.id && o.fx.rings.on);
+    if (others.length) {
+      const h = document.createElement('div');
+      h.className = 'text-slate-400 pt-1';
+      h.textContent = 'Otros cuerpos con anillo:';
+      box.appendChild(h);
+    }
+    others.forEach(o => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'w-full text-left px-2 py-1 rounded-lg bg-white/5 hover:bg-cyan-500/20 border border-white/10 text-slate-200 cursor-pointer transition truncate';
+      b.textContent = `${o.getTypeIcon()} ${o.name} — seleccionar`;
+      b.addEventListener('click', () => this.emit('selectSphereOnlyById', o.id));
+      box.appendChild(b);
+    });
   }
 
   syncSceneFxControls(cfg) {
@@ -398,10 +497,15 @@ export class UIManager {
       { type: 'star', label: '⭐ Estrellas' },
       { type: 'planet', label: '🪐 Planetas' },
       { type: 'moon', label: '🌙 Satélites' },
+      { type: 'artificial', label: '🛰️ Artificiales' },
       { type: 'exotic', label: '✨ Exóticos' }
     ];
     groups.forEach(g => {
-      const items = CELESTIAL_CATALOG.filter(c => (g.type === 'exotic' ? !!c.exotic : !c.exotic && c.bodyType === g.type));
+      const items = CELESTIAL_CATALOG.filter(c => {
+        if (g.type === 'exotic') return !!c.exotic;
+        if (g.type === 'artificial') return !!c.artificial;
+        return !c.exotic && !c.artificial && c.bodyType === g.type;
+      });
       const wrap = document.createElement('div');
       wrap.innerHTML = `<div class="px-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">${g.label}</div><div class="grid grid-cols-3 gap-1.5"></div>`;
       const row = wrap.lastElementChild;
@@ -560,7 +664,7 @@ export class UIManager {
     // Dropdown en panel lateral / inspector
     if (this.dom.selectActiveSphere) {
       this.dom.selectActiveSphere.addEventListener('change', (e) => {
-        this.emit('selectSphereById', e.target.value);
+        this.emit('selectSphereOnlyById', e.target.value);
       });
     }
 
@@ -627,6 +731,14 @@ export class UIManager {
         p.classList.add('hidden');
       }
     });
+  }
+
+  /** Muestra el radio orbital; el slider amplía su rango si el valor lo supera (sin límite superior). */
+  setOrbitRadiusControls(value) {
+    const slider = this.dom.sliderOrbitRadius;
+    slider.max = Math.max(6000, Math.ceil(value * 1.25 / 500) * 500);
+    slider.value = value;
+    if (this.dom.numOrbitRadius && document.activeElement !== this.dom.numOrbitRadius) this.dom.numOrbitRadius.value = value;
   }
 
   /**
@@ -786,7 +898,7 @@ export class UIManager {
       }
     }
     if (photoActions) photoActions.classList.toggle('hidden', !!celDef);
-    this.syncFxControls(sphere);
+    this.syncFxControls(sphere, allSpheres);
     this.dom.navTabs.forEach(t => {
       if (t.dataset.tab === 'tab-mosaic') {
         t.classList.toggle('hidden', !!celDef);
@@ -879,8 +991,7 @@ export class UIManager {
 
     // Sliders de Órbita Relativa
     if (this.dom.sliderOrbitRadius) {
-      this.dom.sliderOrbitRadius.value = sphere.orbitRadius;
-      this.dom.lblOrbitRadius.textContent = `${sphere.orbitRadius} u`;
+      this.setOrbitRadiusControls(sphere.orbitRadius);
     }
     if (this.dom.sliderOrbitSpeed) {
       this.dom.sliderOrbitSpeed.value = sphere.orbitSpeed;
@@ -1091,7 +1202,7 @@ export class UIManager {
       n.className = 'text-[9px] leading-tight w-full truncate';
       n.textContent = s.name;
       b.append(i, n);
-      b.addEventListener('click', () => this.emit('selectSphere', s));
+      b.addEventListener('click', () => this.emit('selectSphereOnly', s));
       grid.appendChild(b);
     });
 
@@ -1534,6 +1645,25 @@ export class UIManager {
       icons();
     };
 
+    const renderTemplates = () => {
+      $('universe-templates').innerHTML = UNIVERSE_TEMPLATES.map(t => `
+        <div class="flex items-center gap-3 p-2 rounded-2xl border border-white/10 bg-white/5" data-tpl="${t.id}">
+          <div class="w-12 h-12 shrink-0 rounded-lg bg-black/60 border border-white/10 flex items-center justify-center text-2xl">${t.icon}</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold text-white truncate">${esc(t.name)}</div>
+            <div class="text-[10px] text-slate-400 leading-snug">${esc(t.description)}</div>
+          </div>
+          <button data-act="template" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-cyan-500/25 hover:bg-cyan-500/40 border border-cyan-400/50 text-cyan-100 text-[11px] font-bold cursor-pointer">Usar</button>
+        </div>`).join('');
+    };
+    renderTemplates();
+
+    $('universe-templates').addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-act="template"]');
+      if (!btn || !guardDiscard()) return;
+      if (await um.createFromTemplate(btn.closest('[data-tpl]').dataset.tpl)) close();
+    });
+
     const refreshState = () => {
       chipName.textContent = um.name;
       chipDirty.classList.toggle('hidden', !um.dirty);
@@ -1678,6 +1808,11 @@ export class UIManager {
   }
 
   setSpinButtonState(isAutoRotating) {
+    const d = document;
+    d.getElementById('zen-icon-pause')?.classList.toggle('hidden', !isAutoRotating);
+    d.getElementById('zen-icon-play')?.classList.toggle('hidden', isAutoRotating);
+    const lbl = d.getElementById('lbl-zen-spin');
+    if (lbl) lbl.textContent = isAutoRotating ? 'Pausa' : 'Reanudar';
     if (isAutoRotating) {
       this.dom.iconPause.classList.remove('hidden');
       this.dom.iconPlay.classList.add('hidden');

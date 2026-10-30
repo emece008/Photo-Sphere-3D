@@ -35,6 +35,43 @@ export const CELESTIAL_CATALOG = [
   { id: 'titan', name: 'Titán', bodyType: 'moon', icon: '🟤', radius: 24, spin: 0.6,
     info: 'La mayor luna de Saturno, con atmósfera densa y lagos de metano.' },
 
+  { id: 'ganymede', name: 'Ganímedes', bodyType: 'moon', icon: '🟫', radius: 24, spin: 0.6,
+    info: 'La mayor luna del Sistema Solar, más grande que Mercurio.' },
+  { id: 'callisto', name: 'Calisto', bodyType: 'moon', icon: '⚫', radius: 22, spin: 0.5,
+    info: 'Luna de Júpiter con la superficie más craterizada que se conoce.' },
+  { id: 'enceladus', name: 'Encélado', bodyType: 'moon', icon: '⚪', radius: 12, spin: 0.7,
+    info: 'Luna de Saturno que expulsa géiseres de agua desde su polo sur.' },
+  { id: 'triton', name: 'Tritón', bodyType: 'moon', icon: '🟦', radius: 18, spin: -0.5,
+    info: 'Mayor luna de Neptuno; orbita en sentido contrario al giro del planeta.' },
+  { id: 'phobos', name: 'Fobos', bodyType: 'moon', icon: '🪨', radius: 9, spin: 1.2,
+    info: 'La mayor de las dos pequeñas lunas de Marte.' },
+  { id: 'deimos', name: 'Deimos', bodyType: 'moon', icon: '🪨', radius: 7, spin: 1.0,
+    info: 'La menor y más lejana de las lunas de Marte.' },
+  { id: 'charon', name: 'Caronte', bodyType: 'moon', icon: '⚫', radius: 14, spin: 0.5,
+    info: 'La mayor luna de Plutón; ambos giran alrededor de un punto común.' },
+
+  // Planetas enanos
+  { id: 'pluto', name: 'Plutón', bodyType: 'planet', icon: '🟤', radius: 18, spin: 0.5,
+    info: 'Planeta enano del cinturón de Kuiper, con una gran llanura de hielo en forma de corazón.' },
+  { id: 'ceres', name: 'Ceres', bodyType: 'planet', icon: '⚪', radius: 14, spin: 0.9,
+    info: 'El mayor objeto del cinturón de asteroides, entre Marte y Júpiter.' },
+
+  // Objetos artificiales
+  { id: 'iss', name: 'ISS', bodyType: 'moon', artificial: true, icon: '🛰️', radius: 6, spin: 0.8,
+    info: 'Estación Espacial Internacional: laboratorio orbital habitado a unos 400 km de la Tierra.' },
+  { id: 'tiangong', name: 'Tiangong', bodyType: 'moon', artificial: true, icon: '🛰️', radius: 6, spin: 0.8,
+    info: 'Estación espacial china en órbita terrestre baja.' },
+  { id: 'hubble', name: 'Hubble', bodyType: 'moon', artificial: true, icon: '🔭', radius: 5, spin: 0.6,
+    info: 'Telescopio espacial lanzado en 1990 que orbita la Tierra.' },
+  { id: 'gps', name: 'Satélite GPS', bodyType: 'moon', artificial: true, icon: '📡', radius: 4, spin: 0.5,
+    info: 'Satélite de navegación en órbita media a unos 20.000 km.' },
+  { id: 'sputnik', name: 'Sputnik 1', bodyType: 'moon', artificial: true, icon: '🔘', radius: 4, spin: 1.5,
+    info: 'Primer satélite artificial de la historia (1957).' },
+  { id: 'jwst', name: 'James Webb', bodyType: 'moon', artificial: true, icon: '🔭', radius: 7, spin: 0.2,
+    info: 'Telescopio infrarrojo con espejo dorado de 6,5 m, situado en el punto L2 Sol-Tierra.' },
+  { id: 'voyager', name: 'Voyager 1', bodyType: 'planet', artificial: true, icon: '🚀', radius: 6, spin: 0.3,
+    info: 'Sonda lanzada en 1977; es el objeto humano más lejano de la Tierra.' },
+
   // Objetos exóticos
   { id: 'pulsar', name: 'Púlsar', bodyType: 'star', exotic: true, icon: '📡', radius: 26, spin: 7, emissive: true,
     fx: { beams: { on: true, color: '#67e8f9', length: 9, tilt: 35 }, aura: { on: true, color: '#67e8f9', size: 2.6, intensity: 0.7, pulse: true } },
@@ -224,6 +261,103 @@ const SHADERS = {
 };
 
 Object.assign(SHADERS, {
+  ganymede(x, y, z) {
+    const n = fbm(x * 3, y * 3, z * 3, 301, 5);
+    const bright = clamp01((fbm(x * 5 + 2, y * 5, z * 5, 303, 4) - 0.55) * 4);
+    return mix(ramp([[0, [90, 78, 66]], [1, [160, 146, 128]]], n), [215, 210, 200], bright * 0.6);
+  },
+
+  callisto(x, y, z) {
+    const n = fbm(x * 3.5, y * 3.5, z * 3.5, 311, 6);
+    return ramp([[0, [50, 44, 40]], [0.6, [92, 80, 68]], [1, [150, 138, 125]]], n);
+  },
+
+  enceladus(x, y, z) {
+    const n = fbm(x * 3, y * 3, z * 3, 321, 4);
+    const stripe = 1 - clamp01(Math.abs(fbm(x * 4, y * 4, z * 4, 323, 3) - 0.5) * 30);
+    return mix(ramp([[0, [225, 235, 240]], [1, [255, 255, 255]]], n), [140, 190, 215], stripe * 0.6);
+  },
+
+  triton(x, y, z) {
+    const n = fbm(x * 3, y * 3, z * 3, 331, 4);
+    const cap = clamp01((-y - 0.2) * 3);
+    return mix(ramp([[0, [165, 150, 150]], [1, [225, 205, 200]]], n), [240, 215, 215], cap * 0.6);
+  },
+
+  phobos(x, y, z) {
+    const n = fbm(x * 4, y * 4, z * 4, 341, 5);
+    return ramp([[0, [60, 52, 48]], [1, [140, 124, 110]]], n);
+  },
+
+  deimos(x, y, z) {
+    const n = fbm(x * 3, y * 3, z * 3, 343, 5);
+    return ramp([[0, [80, 70, 62]], [1, [165, 150, 135]]], n);
+  },
+
+  charon(x, y, z) {
+    const n = fbm(x * 3, y * 3, z * 3, 351, 5);
+    const pole = clamp01((y - 0.6) * 4);
+    return mix(ramp([[0, [95, 90, 90]], [1, [170, 165, 162]]], n), [150, 70, 55], pole * 0.5);
+  },
+
+  pluto(x, y, z) {
+    const n = fbm(x * 3, y * 3, z * 3, 361, 5);
+    let col = ramp([[0, [90, 60, 45]], [0.5, [165, 125, 100]], [1, [215, 190, 165]]], n);
+    const heart = clamp01(1 - Math.hypot(x - 0.55, y + 0.1, z - 0.7) * 2.2);
+    col = mix(col, [240, 230, 215], heart);
+    return col;
+  },
+
+  ceres(x, y, z) {
+    const n = fbm(x * 3, y * 3, z * 3, 371, 6);
+    const spot = clamp01((fbm(x * 6, y * 6, z * 6, 373, 3) - 0.68) * 8);
+    return mix(ramp([[0, [70, 66, 62]], [1, [140, 134, 126]]], n), [240, 240, 235], spot);
+  },
+
+  // Objetos artificiales: casco metálico con bandas de paneles solares
+  iss(x, y, z) {
+    const band = Math.abs(Math.sin(y * 7)) > 0.62;
+    const grid = (Math.floor((x + 1) * 9) + Math.floor((z + 1) * 9)) % 2 ? 1 : 0.8;
+    if (band) return [30 * grid + 10, 70 * grid + 20, 150 * grid + 40];
+    return [215 - grid * 15, 215 - grid * 15, 220 - grid * 12];
+  },
+
+  tiangong(x, y, z) {
+    const band = Math.abs(Math.sin(y * 5 + 1)) > 0.55;
+    const grid = (Math.floor((x + 1) * 8) + Math.floor((y + 1) * 8)) % 2 ? 1 : 0.82;
+    return band ? [20 * grid + 8, 60 * grid + 25, 140 * grid + 40] : [235 * grid, 232 * grid, 225 * grid];
+  },
+
+  hubble(x, y, z) {
+    const gold = Math.abs(y) > 0.55;
+    const n = fbm(x * 8, y * 8, z * 8, 381, 3);
+    return gold ? [190 + n * 50, 150 + n * 40, 60 + n * 20] : [190 + n * 40, 195 + n * 40, 205 + n * 40];
+  },
+
+  gps(x, y, z) {
+    const panel = Math.abs(x) > 0.7;
+    const n = fbm(x * 10, y * 10, z * 10, 383, 3);
+    return panel ? [25, 55 + n * 30, 130 + n * 40] : [200 + n * 40, 160 + n * 30, 70 + n * 20];
+  },
+
+  sputnik(x, y, z) {
+    const n = fbm(x * 6, y * 6, z * 6, 385, 3);
+    const v = 175 + n * 70 + Math.sin(y * 20) * 8;
+    return [v, v, v + 6];
+  },
+
+  jwst(x, y, z) {
+    const hx = Math.abs(Math.sin(x * 14) * Math.sin(y * 14 + z * 6));
+    const v = 0.78 + hx * 0.22;
+    return [225 * v, 170 * v, 60 * v];
+  },
+
+  voyager(x, y, z) {
+    const dish = z > 0.45;
+    const n = fbm(x * 8, y * 8, z * 8, 387, 3);
+    return dish ? [225 + n * 25, 225 + n * 25, 230 + n * 20] : [140 + n * 60, 135 + n * 50, 125 + n * 40];
+  },
+
   pulsar(x, y, z) {
     const n = fbm(x * 3, y * 3, z * 3, 201, 4);
     const pole = clamp01((Math.abs(y) - 0.7) * 3);
@@ -310,6 +444,12 @@ const DECORATE = {
   mars: (ctx, w, h) => paintCraters(ctx, w, h, 60, 6, 0.1),
   comet: (ctx, w, h) => paintCraters(ctx, w, h, 50, 8, 0.15),
   asteroid: (ctx, w, h) => paintCraters(ctx, w, h, 120, 9, 0.2),
+  callisto: (ctx, w, h) => paintCraters(ctx, w, h, 260, 12, 0.3),
+  ganymede: (ctx, w, h) => paintCraters(ctx, w, h, 90, 13, 0.18),
+  phobos: (ctx, w, h) => paintCraters(ctx, w, h, 110, 14, 0.2),
+  deimos: (ctx, w, h) => paintCraters(ctx, w, h, 70, 15, 0.15),
+  charon: (ctx, w, h) => paintCraters(ctx, w, h, 80, 16, 0.15),
+  ceres: (ctx, w, h) => paintCraters(ctx, w, h, 130, 17, 0.2),
   jupiter: (ctx, w, h) => paintSpot(ctx, w, h, 0.68, 0.62, w * 0.05, h * 0.045, '176,70,40', 0.85),
   neptune: (ctx, w, h) => paintSpot(ctx, w, h, 0.3, 0.55, w * 0.04, h * 0.03, '15,30,100', 0.7)
 };

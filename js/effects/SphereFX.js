@@ -4,9 +4,11 @@
  */
 
 import { ParticleEmitter, getGlowTexture, hexToRgb } from './Particles.js';
+import { AsteroidRing, createDefaultRing } from './AsteroidRing.js';
 
 export function createDefaultFx() {
   return {
+    rings: createDefaultRing(),
     aura: { on: false, color: '#7dd3fc', size: 2.8, intensity: 0.7, pulse: false, speed: 3 },
     tail: { on: false, color: '#7dd3fc', length: 4, density: 70, size: 1, follow: true, life: 1, spread: 1, gradient: false, color2: '#3b6fd8' },
     sparks: { on: false, color: '#fde68a', rate: 25, size: 1, life: 1, speed: 1 },
@@ -49,6 +51,7 @@ export class SphereFXRig {
     this.accSparks = 0;
     this.aura = null;
     this.beams = null;
+    this.ring = null;
     this.tail = null;
     this.sparks = null;
     this.sync();
@@ -115,6 +118,16 @@ export class SphereFXRig {
       mesh.add(group);
     }
 
+    if (fx.rings.on) {
+      if (!this.ring) {
+        this.ring = new AsteroidRing(THREE, this.scene);
+        this.ring.group.position.copy(mesh.position);
+      }
+      this.ring.configure(fx.rings, s.radius, s.radius);
+    } else {
+      this.clearRing();
+    }
+
     if (fx.tail.on && !this.tail) this.tail = new ParticleEmitter(THREE, this.scene, 3000);
     if (fx.sparks.on && !this.sparks) this.sparks = new ParticleEmitter(THREE, this.scene, 900);
   }
@@ -124,6 +137,12 @@ export class SphereFXRig {
     this.sphere.mesh.remove(this.aura);
     this.aura.material.dispose();
     this.aura = null;
+  }
+
+  clearRing() {
+    if (!this.ring) return;
+    this.ring.dispose();
+    this.ring = null;
   }
 
   clearBeams() {
@@ -148,6 +167,11 @@ export class SphereFXRig {
       const pulse = fx.aura.pulse ? 0.75 + 0.25 * Math.sin(w) : 1;
       this.aura.material.opacity = fx.aura.intensity * pulse;
       this.aura.scale.setScalar(s.radius * 2 * fx.aura.size * (fx.aura.pulse ? 0.96 + 0.04 * Math.sin(w) : 1));
+    }
+
+    if (this.ring) {
+      this.ring.group.position.copy(pos);
+      this.ring.update(dt);
     }
 
     if (this.beams && fx.beams.sweep) {
@@ -259,6 +283,7 @@ export class SphereFXRig {
   dispose() {
     this.clearAura();
     this.clearBeams();
+    this.clearRing();
     if (this.tail) this.tail.dispose();
     if (this.sparks) this.sparks.dispose();
     this.tail = this.sparks = null;

@@ -12,6 +12,7 @@ import { getCelestialDef } from './entities/CelestialTextures.js';
 import { SceneFX, createDefaultSceneFx } from './effects/SceneFX.js';
 import { UniverseManager } from './persistence/UniverseManager.js';
 import { FX_PRESETS, mergeFx } from './effects/SphereFX.js';
+import { RING_PRESETS } from './effects/AsteroidRing.js';
 import { UIManager } from './ui/UIManager.js';
 import { ZenMode } from './ui/ZenMode.js';
 import { TourMode } from './ui/TourMode.js';
@@ -105,6 +106,7 @@ export class PhotoSphereApp {
       onZenChange: (active) => {
         this.tour.setIdleEnabled(active);
         if (!active) this.tour.stop();
+        this.syncZenFullscreen(active);
       },
       header: this.uiManager.dom.header,
       pillsBar: this.uiManager.dom.celestialPillsBar,
@@ -136,17 +138,31 @@ export class PhotoSphereApp {
       this.selectAndFlyToSphere(entity);
     };
 
-    // Clic / toque en una esfera (Vista Normal y Zen), en dos pasos:
-    // 1) Si no está centrada: solo se selecciona y se centra la vista.
-    // 2) Si ya está centrada: el mismo clic abre la foto pulsada.
+    // Clic / toque en una esfera (Vista Normal y Zen):
+    // - Un clic: solo la selecciona, sin mover la vista.
+    // - Doble clic (o doble toque): la selecciona y enfoca la cámara.
+    // - Un clic sobre la esfera ya centrada: abre la foto pulsada.
+    let lastTap = { entity: null, time: 0 };
     this.raycaster.onSphereLeftClick = (entity) => {
+      const now = Date.now();
+      const isDouble = lastTap.entity === entity && now - lastTap.time < 400;
+      lastTap = { entity, time: isDouble ? 0 : now };
+
       const isCentered =
         this.activeSphere === entity &&
         this.orbitEngine.focusedEntity === entity &&
         !this.orbitEngine.isFlying;
 
-      if (!isCentered) {
+      if (isDouble && !isCentered) {
         this.selectAndFlyToSphere(entity);
+        return false;
+      }
+      if (!isCentered) {
+        if (this.activeSphere !== entity) {
+          this.tour.stop();
+          this.setActiveSphere(entity);
+          this.uiManager.notify(`✔ ${entity.name} seleccionada · doble clic para enfocar`);
+        }
         return false;
       }
       const def = getCelestialDef(entity.celestial);
@@ -341,9 +357,43 @@ export class PhotoSphereApp {
     this.zenMode.frameAllSpheres();
   }
 
+  /**
+   * La vista inmersiva activa la pantalla completa al entrar y la libera al salir.
+   * Si el usuario sale de la pantalla completa (p. ej. con ESC), también sale de la vista inmersiva.
+   */
+  syncZenFullscreen(active) {
+    const root = document.documentElement;
+    const request = root.requestFullscreen || root.webkitRequestFullscreen;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+    if (!this._zenFsBound) {
+      this._zenFsBound = true;
+      const onChange = () => {
+        if (this._zenAutoFs && !isFs()) {
+          this._zenAutoFs = false;
+          if (this.zenMode && this.zenMode.isActive) this.zenMode.toggle(false);
+        }
+      };
+      document.addEventListener('fullscreenchange', onChange);
+      document.addEventListener('webkitfullscreenchange', onChange);
+    }
+
+    if (active) {
+      if (!request || isFs()) return;
+      const p = request.call(root, { navigationUI: 'hide' });
+      this._zenAutoFs = true;
+      if (p && p.catch) p.catch(() => { this._zenAutoFs = false; });
+    } else if (this._zenAutoFs) {
+      this._zenAutoFs = false;
+      if (isFs() && exit) exit.call(document);
+    }
+  }
+
   /** Pantalla completa (oculta la barra de URL). En iPhone, que no la soporta, guía a "Añadir a inicio". */
   initFullscreenButton() {
     const btn = document.getElementById('btn-quick-fullscreen');
+    const zenBtn = document.getElementById('btn-zen-fullscreen');
     if (!btn) return;
     const root = document.documentElement;
     const request = root.requestFullscreen || root.webkitRequestFullscreen;
@@ -353,16 +403,25 @@ export class PhotoSphereApp {
       || window.matchMedia('(display-mode: fullscreen)').matches
       || window.navigator.standalone;
 
-    if (standalone) { btn.classList.add('hidden'); return; }
+    if (standalone) {
+      btn.classList.add('hidden');
+      if (zenBtn) zenBtn.classList.add('hidden');
+      return;
+    }
 
     const sync = () => {
-      document.getElementById('icon-fs-on').classList.toggle('hidden', isFs());
-      document.getElementById('icon-fs-off').classList.toggle('hidden', !isFs());
+      const on = isFs();
+      document.getElementById('icon-fs-on').classList.toggle('hidden', on);
+      document.getElementById('icon-fs-off').classList.toggle('hidden', !on);
+      document.getElementById('zen-icon-fs-on')?.classList.toggle('hidden', on);
+      document.getElementById('zen-icon-fs-off')?.classList.toggle('hidden', !on);
+      const lbl = document.getElementById('lbl-zen-fs');
+      if (lbl) lbl.textContent = on ? 'Salir de pantalla completa' : 'Pantalla completa';
     };
     document.addEventListener('fullscreenchange', sync);
     document.addEventListener('webkitfullscreenchange', sync);
 
-    btn.addEventListener('click', () => {
+    const toggleFs = () => {
       if (!request) {
         this.uiManager.notify('📱 En iPhone: Compartir → "Añadir a pantalla de inicio" para abrirlo como app a pantalla completa', 6000);
         return;
@@ -373,7 +432,9 @@ export class PhotoSphereApp {
         const p = request.call(root, { navigationUI: 'hide' });
         if (p && p.catch) p.catch(() => this.uiManager.notify('No se pudo activar la pantalla completa'));
       }
-    });
+    };
+    btn.addEventListener('click', toggleFs);
+    if (zenBtn) zenBtn.addEventListener('click', toggleFs);
   }
 
   /**
@@ -892,6 +953,20 @@ export class PhotoSphereApp {
       this.selectAndFlyToSphere(s);
     });
 
+    // Selector del panel de configuración: solo selecciona, sin mover la cámara (para ello está "Ir")
+    this.uiManager.on('selectSphereOnly', (s) => {
+      this.tour.stop();
+      this.setActiveSphere(s);
+    });
+
+    this.uiManager.on('selectSphereOnlyById', (id) => {
+      const s = this.spheres.find(item => item.id === id);
+      if (s) {
+        this.tour.stop();
+        this.setActiveSphere(s);
+      }
+    });
+
     this.uiManager.on('selectSphereById', (id) => {
       const s = this.spheres.find(item => item.id === id);
       if (s) {
@@ -980,12 +1055,26 @@ export class PhotoSphereApp {
       if (!s || !s.fx[effect]) return;
       s.fx[effect][key] = value;
       s.fxDirty = true;
+      if (effect === 'rings' && key === 'on') this.uiManager.syncFxControls(s, this.spheres);
+    });
+
+    this.uiManager.on('moveRing', ({ toId }) => {
+      const from = this.activeSphere;
+      const to = this.spheres.find(o => o.id === toId);
+      if (!from || !to || to === from) return;
+      to.fx.rings = { ...from.fx.rings, on: true };
+      from.fx.rings.on = false;
+      from.fxDirty = to.fxDirty = true;
+      this.uiManager.syncFxControls(from, this.spheres);
+      this.uiManager.notify(`🪨 Anillo movido a ${to.name}`);
     });
 
     this.uiManager.on('fxPreset', (name) => {
       const s = this.activeSphere;
       if (!s || !FX_PRESETS[name]) return;
+      const rings = s.fx.rings;
       s.fx = mergeFx(FX_PRESETS[name]);
+      if (name !== 'none') s.fx.rings = rings;
       s.fxDirty = true;
       this.uiManager.syncFxControls(s);
     });
@@ -994,6 +1083,15 @@ export class PhotoSphereApp {
       const cfg = this.config.sceneFx[type];
       if (!cfg) return;
       cfg[key] = value;
+    });
+
+    this.uiManager.on('ringPreset', ({ name }) => {
+      const preset = RING_PRESETS[name];
+      const s = this.activeSphere;
+      if (!preset || !s) return;
+      Object.assign(s.fx.rings, preset, { on: true });
+      s.fxDirty = true;
+      this.uiManager.syncFxControls(s, this.spheres);
     });
 
     this.uiManager.on('sceneFxTest', (type) => {
@@ -1181,13 +1279,15 @@ export class PhotoSphereApp {
       btn.addEventListener('click', () => this.setUniverseSpeed(parseFloat(btn.dataset.speed)));
     });
 
-    dom.btnQuickSpin.addEventListener('click', () => {
+    const toggleSpin = () => {
       this.config.autoRotate = !this.config.autoRotate;
       if (this.sceneManager.controls) {
         this.sceneManager.controls.autoRotate = this.config.autoRotate;
       }
       this.uiManager.setSpinButtonState(this.config.autoRotate);
-    });
+    };
+    dom.btnQuickSpin.addEventListener('click', toggleSpin);
+    document.getElementById('btn-zen-spin')?.addEventListener('click', toggleSpin);
 
     dom.btnQuickCamera.addEventListener('click', () => {
       const dataUrl = this.sceneManager.captureScreenshot();
@@ -1339,15 +1439,17 @@ export class PhotoSphereApp {
     }
 
     if (dom.sliderOrbitRadius) {
-      dom.sliderOrbitRadius.addEventListener('input', (e) => {
-        if (!this.activeSphere) return;
-        this.activeSphere.orbitRadius = parseInt(e.target.value, 10);
-        dom.lblOrbitRadius.textContent = `${this.activeSphere.orbitRadius} u`;
+      const applyRadius = (v) => {
+        if (!this.activeSphere || !Number.isFinite(v)) return;
+        this.activeSphere.orbitRadius = Math.max(1, Math.round(v));
+        this.uiManager.setOrbitRadiusControls(this.activeSphere.orbitRadius);
         this.physics.recalculateLayout(this.spheres, this.config.layoutMode, this.config.sphereMargin);
         this.spheres.forEach(s => {
           if (s.parentId === this.activeSphere.parentId) s.createOrUpdateOrbitLine(this.sceneManager.scene, this.config.showAllOrbitLines);
         });
-      });
+      };
+      dom.sliderOrbitRadius.addEventListener('input', (e) => applyRadius(parseInt(e.target.value, 10)));
+      if (dom.numOrbitRadius) dom.numOrbitRadius.addEventListener('input', (e) => applyRadius(parseFloat(e.target.value)));
     }
 
     if (dom.sliderOrbitSpeed) {

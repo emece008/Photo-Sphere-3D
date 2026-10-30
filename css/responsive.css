@@ -255,3 +255,7 @@ html, body {
     justify-content: flex-start;
   }
 }
+
+/* Dock de Vista Limpia: nunca sobrepasa la pantalla */
+#zen-side-panel { max-height: calc(100dvh - 1rem); overflow-y: auto; scrollbar-width: none; }
+

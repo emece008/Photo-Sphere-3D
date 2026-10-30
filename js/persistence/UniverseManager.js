@@ -5,6 +5,7 @@
  */
 
 import { UniverseStore, newUniverseId, downloadUniverse, readUniverseFile } from './UniverseStore.js';
+import { getUniverseTemplate } from '../config/templates.js';
 
 const FORMAT_VERSION = 1;
 const LS_LAST = 'pss:lastUniverse';
@@ -208,6 +209,19 @@ export class UniverseManager {
     this.savedSignature = null;
     this.emitChange();
     this.app.uiManager.notify('✨ Nuevo universo creado');
+  }
+
+  async createFromTemplate(templateId) {
+    const tpl = getUniverseTemplate(templateId);
+    if (!tpl) return false;
+    const data = tpl.build();
+    await this.apply(data, { id: null, name: tpl.name });
+    localStorage.removeItem(LS_LAST);
+    this.dirty = true;
+    this.savedSignature = null;
+    this.emitChange();
+    this.app.uiManager.notify(`${tpl.icon} Plantilla "${tpl.name}" cargada`);
+    return true;
   }
 
   async remove(id) {

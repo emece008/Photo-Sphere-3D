@@ -421,6 +421,19 @@
             <p id="move-hint" class="hidden text-[10px] text-amber-300">Arrastra la estrella por la pantalla para colocarla.</p>
           </div>
 
+          <!-- Agujero negro: estrellas que lo orbitan -->
+          <div id="blackhole-panel" class="hidden p-2.5 rounded-xl bg-amber-950/20 border border-amber-400/25 text-[10px] space-y-2">
+            <div class="font-bold text-amber-200 flex items-center gap-1 text-[11px]">🕳️ Cuerpos que orbitan este agujero negro</div>
+            <p class="text-slate-300 leading-relaxed">Cada estrella arrastra consigo sus planetas y satélites. Selecciónala para editar su órbita.</p>
+            <div id="blackhole-stars-list" class="space-y-1"></div>
+            <button id="btn-bh-add-star" type="button" class="w-full py-1.5 rounded-xl text-[11px] font-bold bg-amber-500/20 hover:bg-amber-500/40 text-amber-100 border border-amber-400/30 cursor-pointer transition">+ Nueva estrella orbitando</button>
+            <button id="btn-bh-add-bh" type="button" class="w-full py-1.5 rounded-xl text-[11px] font-bold bg-violet-500/20 hover:bg-violet-500/40 text-violet-100 border border-violet-400/30 cursor-pointer transition">+ Nuevo agujero negro orbitando</button>
+            <div class="flex gap-1.5">
+              <select id="bh-assign-select" class="flex-1 min-w-0 bg-black/60 border border-white/15 rounded-xl px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-amber-400 cursor-pointer"></select>
+              <button id="btn-bh-assign" type="button" class="px-3 rounded-xl text-[11px] font-bold bg-white/10 hover:bg-white/20 text-slate-100 border border-white/15 cursor-pointer transition">Asignar</button>
+            </div>
+          </div>
+
           <!-- Parámetros de Órbita Relativa (Distancia, Velocidad, Inclinación, Anillo) -->
           <div id="container-orbit-controls" class="space-y-3 pt-2 border-t border-white/5">
             <div>

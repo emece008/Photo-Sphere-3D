@@ -721,17 +721,29 @@ export class UIManager {
     allSpheres.forEach(s => sphereMap.set(s.id, s));
     const parent = sphere.parentId ? sphereMap.get(sphere.parentId) : null;
 
+    const descendantIds = new Set([sphere.id]);
+    const collectDesc = (id) => allSpheres.forEach(s => {
+      if (s.parentId === id && !descendantIds.has(s.id)) { descendantIds.add(s.id); collectDesc(s.id); }
+    });
+    collectDesc(sphere.id);
+    const blackHoles = allSpheres.filter(s => s.isBlackHole && !descendantIds.has(s.id));
+    const canOrbitBH = isStar && (blackHoles.length > 0 || !!sphere.parentId);
+
     if (isStar) {
+      const bhParent = sphere.parentId ? parent : null;
       if (this.dom.badgeHierarchyType) {
-        this.dom.badgeHierarchyType.textContent = '⭐ Estrella (Centro Gravitatorio)';
+        this.dom.badgeHierarchyType.textContent = bhParent ? '⭐ Estrella (orbita un agujero negro)' : '⭐ Estrella (Centro Gravitatorio)';
         this.dom.badgeHierarchyType.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/30';
       }
       if (this.dom.roleDescriptionCard) {
-        this.dom.roleDescriptionCard.innerHTML = '⭐ <strong>Centro Gravitacional Autónomo</strong>: No orbita alrededor de ningún cuerpo. Es el sol/ancla sobre el que orbitan planetas y satélites.';
+        this.dom.roleDescriptionCard.innerHTML = bhParent
+          ? `🕳️ <strong>Estrella ligada</strong>: orbita el agujero negro <strong>${bhParent.name}</strong> y arrastra consigo a todos sus planetas y satélites. Configura su órbita abajo.`
+          : '⭐ <strong>Centro Gravitacional Autónomo</strong>: No orbita alrededor de ningún cuerpo. Es el sol/ancla sobre el que orbitan planetas y satélites.';
       }
-      if (this.dom.containerParentSelect) this.dom.containerParentSelect.classList.add('hidden');
-      if (this.dom.starIndependentNotice) this.dom.starIndependentNotice.classList.remove('hidden');
-      if (this.dom.containerOrbitControls) this.dom.containerOrbitControls.classList.add('hidden');
+      if (this.dom.containerParentSelect) this.dom.containerParentSelect.classList.toggle('hidden', !canOrbitBH);
+      if (this.dom.descParentHelper && canOrbitBH) this.dom.descParentHelper.textContent = 'Elige un agujero negro para que esta estrella (y todo su sistema) lo oriten.';
+      if (this.dom.starIndependentNotice) this.dom.starIndependentNotice.classList.toggle('hidden', !!sphere.parentId);
+      if (this.dom.containerOrbitControls) this.dom.containerOrbitControls.classList.toggle('hidden', !sphere.parentId);
     } else if (isPlanet) {
       if (this.dom.badgeHierarchyType) {
         this.dom.badgeHierarchyType.textContent = '🪐 Planeta';
@@ -757,6 +769,8 @@ export class UIManager {
       if (this.dom.containerOrbitControls) this.dom.containerOrbitControls.classList.remove('hidden');
       if (this.dom.descParentHelper) this.dom.descParentHelper.textContent = 'Selecciona el Planeta o Estrella al que orbita este satélite.';
     }
+
+    this.syncBlackHolePanel(sphere, allSpheres);
 
     // Objeto celeste: oculta lo relativo a fotos y muestra su ficha
     const celDef = getCelestialDef(sphere.celestial);
@@ -809,6 +823,17 @@ export class UIManager {
         opt.value = '';
         opt.textContent = '⭐ Centro Gravitacional Autónomo (No orbita)';
         this.dom.sphereParent.appendChild(opt);
+        if (canOrbitBH) {
+          const grp = document.createElement('optgroup');
+          grp.label = 'Agujeros negros';
+          blackHoles.forEach(bh => {
+            const o = document.createElement('option');
+            o.value = bh.id;
+            o.textContent = `🕳️ ${bh.name}`;
+            grp.appendChild(o);
+          });
+          this.dom.sphereParent.appendChild(grp);
+        }
       } else {
         const starGroup = document.createElement('optgroup');
         starGroup.label = isPlanet ? 'Estrellas / Soles (Recomendado)' : 'Estrellas';
@@ -1233,6 +1258,11 @@ export class UIManager {
           </div>
         </div>
         <div class="flex items-center gap-1 shrink-0">
+          ${s.isBlackHole ? `
+            <button type="button" class="list-add-star-btn px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 hover:bg-amber-500/40 text-amber-200 border border-amber-400/30 transition cursor-pointer" title="Añadir una estrella que orbite este agujero negro">
+              + Estrella
+            </button>
+          ` : ''}
           ${isStar ? `
             <button type="button" class="list-add-child-btn px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-200 border border-cyan-400/30 transition cursor-pointer" title="Añadir planeta a esta estrella">
               + Planeta
@@ -1260,6 +1290,14 @@ export class UIManager {
           this.emit('selectSphere', s);
         }
       });
+
+      const addStarBtn = row.querySelector('.list-add-star-btn');
+      if (addStarBtn) {
+        addStarBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.emit('createStarForBlackHole', s);
+        });
+      }
 
       const addChildBtn = row.querySelector('.list-add-child-btn');
       if (addChildBtn) {
@@ -1292,23 +1330,14 @@ export class UIManager {
       container.appendChild(row);
     };
 
-    // 1. First, render all Root Stars
+    // 1. Render raíces y su jerarquía completa (agujero negro -> estrella -> planeta -> satélite)
+    const renderTree = (node, depth, guard = 0) => {
+      renderRow(node, Math.min(depth, 2));
+      if (guard > 8) return;
+      spheres.filter(s => s.parentId === node.id).forEach(child => renderTree(child, depth + 1, guard + 1));
+    };
     const rootStars = spheres.filter(s => !s.parentId || !sphereMap.has(s.parentId));
-    rootStars.forEach(star => {
-      renderRow(star, 0);
-
-      // Find planets orbiting this star
-      const planets = spheres.filter(s => s.parentId === star.id);
-      planets.forEach(planet => {
-        renderRow(planet, 1);
-
-        // Find moons orbiting this planet
-        const moons = spheres.filter(s => s.parentId === planet.id);
-        moons.forEach(moon => {
-          renderRow(moon, 2);
-        });
-      });
-    });
+    rootStars.forEach(star => renderTree(star, 0));
 
     // 2. Render any residual un-parented bodies
     spheres.forEach(s => {
@@ -1320,6 +1349,80 @@ export class UIManager {
     if (window.lucide && window.lucide.createIcons) {
       window.lucide.createIcons();
     }
+  }
+
+  /** Panel de agujero negro: estrellas ligadas, creación y asignación de estrellas existentes. */
+  syncBlackHolePanel(sphere, allSpheres) {
+    const panel = document.getElementById('blackhole-panel');
+    if (!panel) return;
+    const isBH = !!sphere.isBlackHole;
+    panel.classList.toggle('hidden', !isBH);
+    if (!isBH) return;
+
+    if (this.dom.badgeHierarchyType) {
+      this.dom.badgeHierarchyType.textContent = '🕳️ Agujero negro';
+      this.dom.badgeHierarchyType.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30';
+    }
+    if (this.dom.roleDescriptionCard) {
+      this.dom.roleDescriptionCard.innerHTML = '🕳️ <strong>Agujero negro</strong>: centro gravitatorio. Puedes hacer que una o varias estrellas (con todos sus planetas y satélites) lo orbiten.';
+    }
+    if (this.dom.starIndependentNotice) {
+      const p = this.dom.starIndependentNotice.querySelector('p.text-slate-300');
+      if (p) p.textContent = 'Los agujeros negros son anclas fijas: las estrellas orbitan a su alrededor, no al revés.';
+    }
+
+    const descendantIds = new Set([sphere.id]);
+    const collectDesc = (id) => allSpheres.forEach(s => {
+      if (s.parentId === id && !descendantIds.has(s.id)) { descendantIds.add(s.id); collectDesc(s.id); }
+    });
+    collectDesc(sphere.id);
+
+    const list = document.getElementById('blackhole-stars-list');
+    list.innerHTML = '';
+    const bound = allSpheres.filter(s => s.parentId === sphere.id);
+    if (bound.length === 0) {
+      list.innerHTML = '<p class="text-slate-500 italic">Nada lo orbita todavía.</p>';
+    }
+    bound.forEach(st => {
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-1 p-1 rounded-lg bg-white/5 border border-white/10';
+      row.innerHTML = `
+        <button type="button" data-act="select" class="flex-1 min-w-0 text-left truncate text-slate-100 hover:text-amber-200 cursor-pointer">${st.isBlackHole ? '🕳️' : '⭐'} ${st.name} <span class="text-slate-400">· ${Math.round(st.orbitRadius)}u</span></button>
+        <button type="button" data-act="release" class="px-1.5 py-0.5 rounded text-[9px] bg-rose-500/20 hover:bg-rose-500/40 text-rose-200 border border-rose-400/30 cursor-pointer" title="Libera el cuerpo (deja de orbitar)">Liberar</button>`;
+      row.querySelector('[data-act="select"]').addEventListener('click', () => this.emit('selectSphere', st));
+      row.querySelector('[data-act="release"]').addEventListener('click', () => this.emit('assignStarToBlackHole', { star: st, blackHole: null }));
+      list.appendChild(row);
+    });
+
+    const sel = document.getElementById('bh-assign-select');
+    sel.innerHTML = '';
+    const candidates = allSpheres.filter(s => s !== sphere && s.parentId !== sphere.id && s.bodyType === 'star' && !descendantIds.has(s.id));
+    const ph = document.createElement('option');
+    ph.value = '';
+    ph.textContent = candidates.length ? 'Asignar estrella o agujero negro…' : 'No hay más candidatos';
+    sel.appendChild(ph);
+    candidates.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.id;
+      o.textContent = `${c.isBlackHole ? '🕳️' : '⭐'} ${c.name}${c.parentId ? ' (orbita otro agujero)' : ''}`;
+      sel.appendChild(o);
+    });
+    sel.disabled = candidates.length === 0;
+
+    if (!panel.dataset.bound) {
+      panel.dataset.bound = '1';
+      document.getElementById('btn-bh-add-star').addEventListener('click', () => {
+        if (this.currentBlackHole) this.emit('createStarForBlackHole', this.currentBlackHole);
+      });
+      document.getElementById('btn-bh-add-bh').addEventListener('click', () => {
+        if (this.currentBlackHole) this.emit('createBlackHoleForBlackHole', this.currentBlackHole);
+      });
+      document.getElementById('btn-bh-assign').addEventListener('click', () => {
+        const id = document.getElementById('bh-assign-select').value;
+        if (id && this.currentBlackHole) this.emit('assignStarToBlackHole', { starId: id, blackHole: this.currentBlackHole });
+      });
+    }
+    this.currentBlackHole = sphere;
   }
 
   syncPhotosCount(sphere) {

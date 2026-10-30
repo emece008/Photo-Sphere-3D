@@ -645,6 +645,67 @@ export class PhotoSphereApp {
     this.uiManager.notify('Colocación cancelada');
   }
 
+  /** Distancia inicial segura de una estrella respecto a su agujero negro (evita solapar el sistema de la estrella). */
+  defaultBlackHoleOrbit(blackHole, star) {
+    const siblings = this.spheres.filter(s => s.parentId === blackHole.id && s !== star);
+    const extent = star.systemExtent || star.radius;
+    return Math.round(Math.max(700, blackHole.radius * 2.5 + extent * 1.6) + siblings.length * (extent * 1.5 + 150));
+  }
+
+  /**
+   * Crea una estrella (con la posibilidad de añadirle planetas y satélites después) que orbita un agujero negro.
+   */
+  createStarForBlackHole(blackHole, extra = {}) {
+    starCounter++;
+    const siblings = this.spheres.filter(s => s.parentId === blackHole.id);
+    const star = new SphereEntity(
+      {
+        name: `Estrella #${starCounter}`,
+        radius: 85,
+        bodyType: 'star',
+        parentId: blackHole.id,
+        orbitRadius: 0,
+        orbitSpeed: 0.3,
+        orbitTilt: (Math.random() - 0.5) * 0.3,
+        orbitAngle: siblings.length * 2.4,
+        shape: 'circle',
+        gap: 4,
+        ...extra
+      },
+      this.THREE,
+      this.config
+    );
+    star.orbitRadius = this.defaultBlackHoleOrbit(blackHole, star);
+    star.showOrbitLine = true;
+
+    this.registerSphere(star);
+    this.setActiveSphere(star);
+    this.orbitEngine.focusOnSphere(star, this.sceneManager.camera, this.sceneManager.controls);
+    this.uiManager.notify(`🕳️ ¡${star.name} orbitando el agujero negro ${blackHole.name}!`);
+  }
+
+  /** Crea un agujero negro que orbita a otro (junto con todo lo que lo orbite). */
+  createBlackHoleForBlackHole(host) {
+    const def = getCelestialDef('blackhole');
+    this.createStarForBlackHole(host, {
+      name: def.name,
+      celestial: def.id,
+      radius: def.radius,
+      spinSpeed: def.spin,
+      fx: def.fx
+    });
+  }
+
+  /** Agujeros negros a los que `sphere` puede asignarse como órbita (sin ciclos). */
+  validBlackHoleHosts(sphere) {
+    const bad = new Set([sphere.id]);
+    const walk = (id) => this.spheres.forEach(s => {
+      if (s.parentId === id && !bad.has(s.id)) { bad.add(s.id); walk(s.id); }
+    });
+    walk(sphere.id);
+    return this.spheres.filter(s => s.isBlackHole && !bad.has(s.id));
+  }
+
   /**
    * Creates a new independent Star at the center of its own stellar system.
    */
@@ -829,6 +890,40 @@ export class PhotoSphereApp {
       this.createPlanet(star);
     });
 
+    this.uiManager.on('createStarForBlackHole', (bh) => {
+      this.createStarForBlackHole(bh);
+    });
+
+    this.uiManager.on('createBlackHoleForBlackHole', (bh) => {
+      this.createBlackHoleForBlackHole(bh);
+    });
+
+    this.uiManager.on('assignStarToBlackHole', ({ star, starId, blackHole }) => {
+      const s = star || this.spheres.find(x => x.id === starId);
+      if (!s) return;
+      if (blackHole && !this.validBlackHoleHosts(s).includes(blackHole)) return;
+      if (blackHole) {
+        const wasFree = s.parentId !== blackHole.id;
+        s.parentId = blackHole.id;
+        if (wasFree || s.orbitRadius <= 0) {
+          s.orbitRadius = this.defaultBlackHoleOrbit(blackHole, s);
+          s.orbitSpeed = 0.3;
+        }
+        s.showOrbitLine = true;
+        this.uiManager.notify(`🕳️ ${s.name} orbitando el agujero negro ${blackHole.name}`);
+      } else {
+        s.parentId = null;
+        s.orbitRadius = 0;
+        s.orbitSpeed = 0;
+        s.removeOrbitLine(this.sceneManager.scene);
+        s.manualPos = s.position.clone();
+        this.uiManager.notify(`⭐ ${s.name} liberada (centro autónomo)`);
+      }
+      this.refreshAllUniverseVisuals();
+      this.physics.recalculateLayout(this.spheres, this.config.layoutMode, this.config.sphereMargin);
+      this.uiManager.syncSphereControls(this.activeSphere, this.spheres);
+    });
+
     this.uiManager.on('createMoonForPlanet', (planet) => {
       this.createMoon(planet);
     });
@@ -914,11 +1009,14 @@ export class PhotoSphereApp {
         if (!preset) return;
 
         // Actualizar tipo y nombre de forma consistente
-        this.activeSphere.setBodyType(targetType, this.sceneManager.scene);
+        const keepBhOrbit = targetType === 'star' && this.activeSphere.bodyType === 'star' && !!this.activeSphere.parentId;
+        this.activeSphere.setBodyType(targetType, this.sceneManager.scene, keepBhOrbit);
         this.activeSphere.setRadius(preset.defaultRadius);
         this.activeSphere.spinSpeed = preset.spinSpeed;
 
-        if (targetType === 'star') {
+        if (targetType === 'star' && keepBhOrbit) {
+          // Sigue orbitando su agujero negro
+        } else if (targetType === 'star') {
           // Desconectar de cualquier padre: Se convierte en Centro Gravitacional Autónomo
           this.activeSphere.parentId = null;
           this.activeSphere.orbitRadius = 0;
@@ -1119,8 +1217,28 @@ export class PhotoSphereApp {
       dom.sphereParent.addEventListener('change', (e) => {
         if (!this.activeSphere) return;
         const newParentId = e.target.value || null;
+        const newParent = newParentId ? this.spheres.find(s => s.id === newParentId) : null;
 
-        if (!newParentId) {
+        if (this.activeSphere.bodyType === 'star' && (!newParentId || (newParent && newParent.isBlackHole && this.validBlackHoleHosts(this.activeSphere).includes(newParent)))) {
+          // Las estrellas solo pueden orbitar agujeros negros (o ser autónomas)
+          const s = this.activeSphere;
+          if (newParent) {
+            const wasFree = !s.parentId;
+            s.parentId = newParent.id;
+            if (wasFree || s.orbitRadius <= 0) {
+              s.orbitRadius = this.defaultBlackHoleOrbit(newParent, s);
+              s.orbitSpeed = 0.3;
+            }
+            s.showOrbitLine = true;
+            this.uiManager.notify(`🕳️ ${s.name} orbitando el agujero negro ${newParent.name}`);
+          } else {
+            s.parentId = null;
+            s.orbitRadius = 0;
+            s.orbitSpeed = 0;
+            s.removeOrbitLine(this.sceneManager.scene);
+            this.uiManager.notify(`⭐ ${s.name} es ahora un centro autónomo`);
+          }
+        } else if (!newParentId) {
           // Desconectado de órbita: Se convierte en Estrella Autónoma
           this.activeSphere.parentId = null;
           this.activeSphere.setBodyType('star', this.sceneManager.scene);

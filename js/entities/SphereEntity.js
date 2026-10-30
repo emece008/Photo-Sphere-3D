@@ -240,11 +240,15 @@ export class SphereEntity {
    * Actualiza el tipo celestial (star | planet | moon) con sus propiedades físicas y visuales.
    * Reajusta el prefijo del nombre y elimina inmediatamente órbitas huérfanas si es estrella.
    */
-  setBodyType(newType, scene = null) {
+  get isBlackHole() {
+    return this.celestial === 'blackhole';
+  }
+
+  setBodyType(newType, scene = null, keepParent = false) {
     this.bodyType = newType;
     this.setName(this.rawName);
 
-    if (newType === 'star') {
+    if (newType === 'star' && !(keepParent && this.parentId)) {
       this.parentId = null;
       this.orbitRadius = 0;
       this.orbitSpeed = 0;
@@ -314,7 +318,8 @@ export class SphereEntity {
     if (!scene) return;
 
     // Si es estrella, no tiene padre o su radio es 0: destruir rastro viejo inmediatamente
-    if (!this.parentId || this.bodyType === 'star' || this.orbitRadius <= 0) {
+    // Una estrella con padre solo puede estar orbitando un agujero negro
+    if (!this.parentId || this.orbitRadius <= 0) {
       this.removeOrbitLine(scene);
       return;
     }
@@ -334,8 +339,8 @@ export class SphereEntity {
     }
 
     // Color diferenciado: Cian para órbitas planetarias, Violeta/Lavanda para lunas
-    const lineColor = this.bodyType === 'moon' ? 0xc084fc : 0x00f0ff;
-    const lineOpacity = this.bodyType === 'moon' ? 0.45 : 0.32;
+    const lineColor = this.bodyType === 'moon' ? 0xc084fc : (this.bodyType === 'star' ? 0xfbbf24 : 0x00f0ff);
+    const lineOpacity = this.bodyType === 'moon' ? 0.45 : (this.bodyType === 'star' ? 0.4 : 0.32);
 
     if (!this.orbitLine) {
       const geom = new this.THREE.BufferGeometry().setFromPoints(points);
@@ -363,7 +368,7 @@ export class SphereEntity {
    * @param {boolean} [globalShowAll=true]
    */
   updateOrbitLinePosition(parentPos, globalShowAll = true) {
-    if (!this.parentId || this.bodyType === 'star' || !this.showOrbitLine || !globalShowAll) {
+    if (!this.parentId || !this.showOrbitLine || !globalShowAll) {
       if (this.orbitLine) {
         this.orbitLine.visible = false;
       }

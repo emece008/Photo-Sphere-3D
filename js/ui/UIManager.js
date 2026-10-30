@@ -98,7 +98,6 @@ export class UIManager {
       containerOrbitControls: document.getElementById('container-orbit-controls'),
       sliderOrbitRadius: document.getElementById('slider-orbit-radius'),
       lblOrbitRadius: document.getElementById('lbl-orbit-radius'),
-      numOrbitRadius: document.getElementById('num-orbit-radius'),
       sliderOrbitSpeed: document.getElementById('slider-orbit-speed'),
       lblOrbitSpeed: document.getElementById('lbl-orbit-speed'),
       sliderOrbitTilt: document.getElementById('slider-orbit-tilt'),
@@ -733,12 +732,20 @@ export class UIManager {
     });
   }
 
+  /** Muestra el radio de la esfera; el slider amplía su rango si el valor lo supera (sin límite superior). */
+  setSphereRadiusControls(value) {
+    const slider = this.dom.sliderSphereRadius;
+    slider.max = Math.max(500, Math.ceil(value / 50) * 50);
+    slider.value = value;
+    this.dom.lblSphereRadius.textContent = `${value} u`;
+  }
+
   /** Muestra el radio orbital; el slider amplía su rango si el valor lo supera (sin límite superior). */
   setOrbitRadiusControls(value) {
     const slider = this.dom.sliderOrbitRadius;
     slider.max = Math.max(6000, Math.ceil(value * 1.25 / 500) * 500);
     slider.value = value;
-    if (this.dom.numOrbitRadius && document.activeElement !== this.dom.numOrbitRadius) this.dom.numOrbitRadius.value = value;
+    this.dom.lblOrbitRadius.textContent = `${value} u`;
   }
 
   /**
@@ -908,8 +915,7 @@ export class UIManager {
 
     // Sliders de Dimensiones Básicas
     if (this.dom.sliderSphereRadius) {
-      this.dom.sliderSphereRadius.value = sphere.radius;
-      this.dom.lblSphereRadius.textContent = `${sphere.radius} u`;
+      this.setSphereRadiusControls(sphere.radius);
     }
     if (this.dom.sliderSphereSpin) {
       this.dom.sliderSphereSpin.value = sphere.spinSpeed;

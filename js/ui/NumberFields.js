@@ -17,7 +17,8 @@ export function initNumberFields(root = document) {
     const fine = step >= 5 ? 1 : step;
     slider.step = String(fine);
     const decimals = (String(fine).split('.')[1] || '').length;
-    const clamp = (v) => Math.min(max, Math.max(min, v));
+    const open = slider.hasAttribute('data-open-max');
+    const clamp = (v) => Math.min(open ? Infinity : max, Math.max(min, v));
     const fmt = (v) => v.toFixed(decimals);
 
     const wrap = document.createElement('span');
@@ -33,7 +34,7 @@ export function initNumberFields(root = document) {
     input.type = 'number';
     input.className = 'num-field-input';
     input.min = String(min);
-    input.max = String(max);
+    if (!open) input.max = String(max);
     input.step = String(fine);
     input.inputMode = 'decimal';
 
@@ -62,6 +63,7 @@ export function initNumberFields(root = document) {
       let v = parseFloat(raw);
       if (Number.isNaN(v)) { readLabel(); return; }
       v = clamp(Math.round(v / fine) * fine);
+      if (open && v > parseFloat(slider.max)) slider.max = String(v);
       slider.value = String(v);
       slider.dispatchEvent(new Event('input', { bubbles: true }));
       input.value = fmt(v);

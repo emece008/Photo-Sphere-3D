@@ -401,7 +401,7 @@
                 <span>Tamaño / Radio 3D:</span>
                 <span id="lbl-sphere-radius" class="font-mono text-[#00f0ff] font-bold">60 u</span>
               </div>
-              <input type="range" id="slider-sphere-radius" min="15" max="150" step="1" value="60">
+              <input type="range" id="slider-sphere-radius" min="15" max="500" step="1" value="60" data-open-max>
             </div>
 
             <!-- Velocidad de Rotación Axial -->
@@ -482,14 +482,11 @@
           <!-- Parámetros de Órbita Relativa (Distancia, Velocidad, Inclinación, Anillo) -->
           <div id="container-orbit-controls" class="space-y-3 pt-2 border-t border-white/5">
             <div>
-              <div class="flex justify-between items-center mb-1.5 text-slate-300">
+              <div class="flex justify-between mb-1.5 text-slate-300">
                 <span>Distancia Orbital (Radio de Órbita):</span>
-                <span class="flex items-center gap-1">
-                  <input type="number" id="num-orbit-radius" min="1" step="1" value="150" class="w-20 bg-black/50 border border-white/15 focus:border-cyan-400/70 rounded px-1.5 py-0.5 text-right font-mono text-[#00f0ff] font-bold focus:outline-none" title="Valor exacto, sin límite" />
-                  <span id="lbl-orbit-radius" class="font-mono text-[#00f0ff] font-bold">u</span>
-                </span>
+                <span id="lbl-orbit-radius" class="font-mono text-[#00f0ff] font-bold">150 u</span>
               </div>
-              <input type="range" id="slider-orbit-radius" min="30" max="6000" step="1" value="150">
+              <input type="range" id="slider-orbit-radius" min="30" max="6000" step="1" value="150" data-open-max>
             </div>
 
             <div>

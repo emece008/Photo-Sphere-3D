@@ -1355,14 +1355,15 @@ export class PhotoSphereApp {
     });
 
     // Sphere dimension & rotation sliders
-    dom.sliderSphereRadius.addEventListener('input', (e) => {
-      if (!this.activeSphere) return;
-      const r = parseInt(e.target.value, 10);
-      this.activeSphere.setRadius(r);
-      dom.lblSphereRadius.textContent = `${r} u`;
-      this.physics.recalculateLayout(this.spheres, this.config.layoutMode, this.config.sphereMargin);
-      this.uiManager.renderSpheresList(this.spheres, this.activeSphere);
-    });
+    const applySphereRadius = (v) => {
+     if (!this.activeSphere || !Number.isFinite(v)) return;
+     const r = Math.max(1, Math.round(v));
+     this.activeSphere.setRadius(r);
+     this.uiManager.setSphereRadiusControls(r);
+     this.physics.recalculateLayout(this.spheres, this.config.layoutMode, this.config.sphereMargin);
+     this.uiManager.renderSpheresList(this.spheres, this.activeSphere);
+    };
+    dom.sliderSphereRadius.addEventListener('input', (e) => applySphereRadius(parseInt(e.target.value, 10)));
 
     dom.sliderSphereSpin.addEventListener('input', (e) => {
       if (!this.activeSphere) return;
@@ -1449,7 +1450,6 @@ export class PhotoSphereApp {
         });
       };
       dom.sliderOrbitRadius.addEventListener('input', (e) => applyRadius(parseInt(e.target.value, 10)));
-      if (dom.numOrbitRadius) dom.numOrbitRadius.addEventListener('input', (e) => applyRadius(parseFloat(e.target.value)));
     }
 
     if (dom.sliderOrbitSpeed) {

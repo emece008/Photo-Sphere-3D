@@ -230,8 +230,13 @@ export class SphereEntity {
    * Convierte la esfera en un objeto celeste (id) o de vuelta en esfera de fotos (null).
    * @param {string|null} id
    */
-  setCelestial(id) {
+  setCelestial(id, applyPresetFx = false) {
     this.celestial = id || null;
+    const def = getCelestialDef(id);
+    if (applyPresetFx && def && def.fx) {
+      this.fx = mergeFx(def.fx);
+      this.fxDirty = true;
+    }
     this.baker.render();
     this.applyCelestialLook();
   }

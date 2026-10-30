@@ -525,9 +525,9 @@ export class PhotoSphereApp {
   createPlanet(targetStar = null, extra = {}) {
     let parentStar = targetStar;
     if (!parentStar) {
-      parentStar = this.activeSphere && (!this.activeSphere.parentId || this.activeSphere.bodyType === 'star')
+      parentStar = this.activeSphere && !this.activeSphere.isBlackHole && (!this.activeSphere.parentId || this.activeSphere.bodyType === 'star')
         ? this.activeSphere
-        : this.spheres.find(s => !s.parentId || s.bodyType === 'star');
+        : this.spheres.find(s => !s.isBlackHole && (!s.parentId || s.bodyType === 'star'));
     }
 
     if (!parentStar) {
@@ -682,6 +682,51 @@ export class PhotoSphereApp {
     this.setActiveSphere(star);
     this.orbitEngine.focusOnSphere(star, this.sceneManager.camera, this.sceneManager.controls);
     this.uiManager.notify(`🕳️ ¡${star.name} orbitando el agujero negro ${blackHole.name}!`);
+  }
+
+  /** Suelta las estrellas/agujeros negros que orbitaban a `bh` (se quedan donde están como centros autónomos). */
+  releaseBlackHoleSatellites(bh) {
+    this.spheres.forEach(c => {
+      if (c.parentId !== bh.id) return;
+      c.manualPos = c.position.clone();
+      c.parentId = null;
+      c.orbitRadius = 0;
+      c.orbitSpeed = 0;
+      c.removeOrbitLine(this.sceneManager.scene);
+    });
+  }
+
+  /** Convierte una esfera cualquiera en agujero negro conservando su posición jerárquica cuando es válida. */
+  convertToBlackHole(s) {
+    if (s.isBlackHole) return;
+    const def = getCelestialDef('blackhole');
+    const scene = this.sceneManager.scene;
+
+    // Solo estrellas y agujeros negros pueden orbitarlo: el resto pasa a ser centro autónomo
+    this.spheres.forEach(c => {
+      if (c.parentId === s.id && c.bodyType !== 'star') {
+        c.manualPos = c.position.clone();
+        c.setBodyType('star', scene);
+      }
+    });
+
+    // Un agujero negro solo puede orbitar a otro agujero negro
+    const parent = this.spheres.find(p => p.id === s.parentId);
+    if (!parent || !parent.isBlackHole) {
+      s.manualPos = s.position.clone();
+      s.parentId = null;
+    }
+
+    s.setBodyType('star', scene, !!s.parentId);
+    s.setCelestial(def.id, true);
+    s.setRadius(def.radius);
+    s.spinSpeed = def.spin;
+
+    this.refreshAllUniverseVisuals();
+    this.physics.recalculateLayout(this.spheres, this.config.layoutMode, this.config.sphereMargin);
+    this.uiManager.syncSphereControls(s, this.spheres);
+    this.uiManager.syncPhotosCount(s);
+    this.uiManager.notify(`🕳️ ${s.name} convertido en agujero negro`);
   }
 
   /** Crea un agujero negro que orbita a otro (junto con todo lo que lo orbite). */
@@ -958,6 +1003,11 @@ export class PhotoSphereApp {
     this.uiManager.on('convertToPhotoSphere', () => {
       const s = this.activeSphere;
       if (!s || !s.celestial) return;
+      if (s.isBlackHole) {
+        this.releaseBlackHoleSatellites(s);
+        this.refreshAllUniverseVisuals();
+        this.physics.recalculateLayout(this.spheres, this.config.layoutMode, this.config.sphereMargin);
+      }
       s.setCelestial(null);
       this.uiManager.syncSphereControls(s, this.spheres);
       this.uiManager.syncPhotosCount(s);
@@ -1000,13 +1050,23 @@ export class PhotoSphereApp {
       if (this.uiManager.setCreateMenuOpen) this.uiManager.setCreateMenuOpen(true);
     });
 
-    // Selector y Cambiador de Tipo Celestial (Estrella | Planeta | Satélite)
+    // Selector y Cambiador de Tipo Celestial (Estrella | Planeta | Satélite | Agujero negro)
     dom.btnBodyTypes.forEach(btn => {
       btn.addEventListener('click', () => {
         if (!this.activeSphere) return;
         const targetType = btn.dataset.type;
+        if (targetType === 'blackhole') {
+          this.convertToBlackHole(this.activeSphere);
+          return;
+        }
         const preset = CELESTIAL_PRESETS[targetType];
         if (!preset) return;
+
+        // Un agujero negro que cambia de tipo suelta lo que lo orbitaba y recupera su aspecto normal
+        if (this.activeSphere.isBlackHole) {
+          this.releaseBlackHoleSatellites(this.activeSphere);
+          this.activeSphere.setCelestial(null);
+        }
 
         // Actualizar tipo y nombre de forma consistente
         const keepBhOrbit = targetType === 'star' && this.activeSphere.bodyType === 'star' && !!this.activeSphere.parentId;
@@ -1023,10 +1083,10 @@ export class PhotoSphereApp {
           this.activeSphere.orbitSpeed = 0;
           this.activeSphere.removeOrbitLine(this.sceneManager.scene);
         } else if (targetType === 'planet') {
-          // Asignar primera estrella disponible si no tiene una
+          // Asignar primera estrella disponible si no tiene una (los agujeros negros no tienen planetas directos)
           const parentObj = this.spheres.find(s => s.id === this.activeSphere.parentId);
-          if (!parentObj || parentObj.bodyType !== 'star') {
-            const firstStar = this.spheres.find(s => s !== this.activeSphere && (s.bodyType === 'star' || !s.parentId));
+          if (!parentObj || parentObj.bodyType !== 'star' || parentObj.isBlackHole) {
+            const firstStar = this.spheres.find(s => s !== this.activeSphere && !s.isBlackHole && (s.bodyType === 'star' || !s.parentId));
             this.activeSphere.parentId = firstStar ? firstStar.id : null;
           }
           if (this.activeSphere.orbitRadius < 120) this.activeSphere.orbitRadius = 220;
@@ -1035,13 +1095,13 @@ export class PhotoSphereApp {
         } else if (targetType === 'moon') {
           // Asignar primer planeta disponible (o estrella)
           const parentObj = this.spheres.find(s => s.id === this.activeSphere.parentId);
-          if (!parentObj || parentObj.bodyType === 'moon') {
+          if (!parentObj || parentObj.bodyType === 'moon' || parentObj.isBlackHole) {
             const firstPlanet = this.spheres.find(s => s !== this.activeSphere && s.bodyType === 'planet');
             if (firstPlanet) {
               this.activeSphere.parentId = firstPlanet.id;
             } else {
-              const firstStar = this.spheres.find(s => s !== this.activeSphere && (s.bodyType === 'star' || !s.parentId));
-              if (firstStar) this.activeSphere.parentId = firstStar.id;
+              const firstStar = this.spheres.find(s => s !== this.activeSphere && !s.isBlackHole && (s.bodyType === 'star' || !s.parentId));
+              this.activeSphere.parentId = firstStar ? firstStar.id : null;
             }
           }
           this.activeSphere.orbitRadius = 65;

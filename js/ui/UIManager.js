@@ -702,7 +702,8 @@ export class UIManager {
 
     // Resaltado del botón de tipo celestial activo
     this.dom.btnBodyTypes.forEach(btn => {
-      if (btn.dataset.type === sphere.bodyType) {
+      const target = sphere.isBlackHole ? 'blackhole' : sphere.bodyType;
+      if (btn.dataset.type === target) {
         btn.classList.add('border-cyan-400', 'bg-cyan-500/30', 'text-white', 'shadow-[0_0_12px_rgba(0,240,255,0.3)]', 'ring-1', 'ring-cyan-300');
         btn.classList.remove('border-white/10', 'text-slate-300');
       } else {
@@ -850,7 +851,7 @@ export class UIManager {
             if (sphere.parentId === s.id) {
               opt.selected = true;
             }
-            if (s.bodyType === 'star') {
+            if (s.bodyType === 'star' && !s.isBlackHole) {
               starGroup.appendChild(opt);
             } else if (s.bodyType === 'planet') {
               planetGroup.appendChild(opt);
@@ -1263,7 +1264,7 @@ export class UIManager {
               + Estrella
             </button>
           ` : ''}
-          ${isStar ? `
+          ${isStar && !s.isBlackHole ? `
             <button type="button" class="list-add-child-btn px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/20 hover:bg-cyan-500/40 text-cyan-200 border border-cyan-400/30 transition cursor-pointer" title="Añadir planeta a esta estrella">
               + Planeta
             </button>

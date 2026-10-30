@@ -649,7 +649,7 @@ export class PhotoSphereApp {
   defaultBlackHoleOrbit(blackHole, star) {
     const siblings = this.spheres.filter(s => s.parentId === blackHole.id && s !== star);
     const extent = star.systemExtent || star.radius;
-    return Math.round(Math.max(700, blackHole.radius * 2.5 + extent * 1.6) + siblings.length * (extent * 1.5 + 150));
+    return Math.round(Math.max(700, Math.max(blackHole.radius * 2.5, (blackHole.systemExtent || 0) * 1.2) + extent * 1.6) + siblings.length * (extent * 1.5 + 150));
   }
 
   /**
@@ -681,7 +681,7 @@ export class PhotoSphereApp {
     this.registerSphere(star);
     this.setActiveSphere(star);
     this.orbitEngine.focusOnSphere(star, this.sceneManager.camera, this.sceneManager.controls);
-    this.uiManager.notify(`🕳️ ¡${star.name} orbitando el agujero negro ${blackHole.name}!`);
+    this.uiManager.notify(`${blackHole.isBlackHole ? '🕳️' : '⭐'} ¡${star.name} orbitando ${blackHole.name}!`);
   }
 
   /** Suelta las estrellas/agujeros negros que orbitaban a `bh` (se quedan donde están como centros autónomos). */
@@ -741,14 +741,14 @@ export class PhotoSphereApp {
     });
   }
 
-  /** Agujeros negros a los que `sphere` puede asignarse como órbita (sin ciclos). */
+  /** Centros (estrellas o agujeros negros) a los que `sphere` puede asignarse como órbita (sin ciclos). */
   validBlackHoleHosts(sphere) {
     const bad = new Set([sphere.id]);
     const walk = (id) => this.spheres.forEach(s => {
       if (s.parentId === id && !bad.has(s.id)) { bad.add(s.id); walk(s.id); }
     });
     walk(sphere.id);
-    return this.spheres.filter(s => s.isBlackHole && !bad.has(s.id));
+    return this.spheres.filter(s => s.bodyType === 'star' && !bad.has(s.id));
   }
 
   /**
@@ -955,7 +955,7 @@ export class PhotoSphereApp {
           s.orbitSpeed = 0.3;
         }
         s.showOrbitLine = true;
-        this.uiManager.notify(`🕳️ ${s.name} orbitando el agujero negro ${blackHole.name}`);
+        this.uiManager.notify(`${blackHole.isBlackHole ? '🕳️' : '⭐'} ${s.name} orbitando ${blackHole.name}`);
       } else {
         s.parentId = null;
         s.orbitRadius = 0;
@@ -1279,7 +1279,7 @@ export class PhotoSphereApp {
         const newParentId = e.target.value || null;
         const newParent = newParentId ? this.spheres.find(s => s.id === newParentId) : null;
 
-        if (this.activeSphere.bodyType === 'star' && (!newParentId || (newParent && newParent.isBlackHole && this.validBlackHoleHosts(this.activeSphere).includes(newParent)))) {
+        if (this.activeSphere.bodyType === 'star' && (!newParentId || (newParent && newParent.bodyType === 'star' && this.validBlackHoleHosts(this.activeSphere).includes(newParent)))) {
           // Las estrellas solo pueden orbitar agujeros negros (o ser autónomas)
           const s = this.activeSphere;
           if (newParent) {
@@ -1290,7 +1290,7 @@ export class PhotoSphereApp {
               s.orbitSpeed = 0.3;
             }
             s.showOrbitLine = true;
-            this.uiManager.notify(`🕳️ ${s.name} orbitando el agujero negro ${newParent.name}`);
+            this.uiManager.notify(`${newParent.isBlackHole ? '🕳️' : '⭐'} ${s.name} orbitando ${newParent.name}`);
           } else {
             s.parentId = null;
             s.orbitRadius = 0;

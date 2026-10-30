@@ -1577,5 +1577,13 @@ export class PhotoSphereApp {
 // Bootstrap on DOM ready
 window.addEventListener('DOMContentLoaded', () => {
   window.app = new PhotoSphereApp();
-  window.app.init();
+  const hideSplash = () => {
+    const el = document.getElementById('splash');
+    if (!el) return;
+    el.classList.add('hide');
+    setTimeout(() => el.remove(), 700);
+  };
+  Promise.resolve()
+    .then(() => window.app.init())
+    .finally(() => setTimeout(hideSplash, 400));
 });

@@ -12,8 +12,16 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Photo Sphere">
-  <link rel="icon" type="image/png" href="./icons/icon-192.png">
-  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="icon" href="./icons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <style>
+    #splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(ellipse at center,#0b1330 0%,#040711 70%);transition:opacity .6s ease}
+    #splash.hide{opacity:0;pointer-events:none}
+    #splash img{width:min(52vmin,320px);height:auto;animation:splash-float 3.2s ease-in-out infinite;filter:drop-shadow(0 0 28px rgba(56,189,248,.35))}
+    #splash span{color:#94a3b8;font:600 12px/1 system-ui,sans-serif;letter-spacing:.3em;text-transform:uppercase}
+    @keyframes splash-float{50%{transform:translateY(-8px) scale(1.02)}}
+  </style>
   <meta name="description" content="Simulador de universo fotográfico 3D orbital con física anti-colisión, texturizado procedural en alta resolución y modo Zen inmersivo.">
 
   <!-- Tailwind CSS Engine -->
@@ -48,6 +56,10 @@
   </script>
 </head>
 <body class="text-slate-100 h-screen w-screen relative overflow-hidden select-none bg-[#080a11]">
+  <div id="splash" role="status" aria-label="Cargando">
+    <img src="./icons/splash-planet.webp" alt="Photo Sphere Studio 3D" width="384" height="384">
+    <span>Photo Sphere Studio</span>
+  </div>
 
   <!-- WebGL Rendering Canvas -->
   <canvas id="webgl-canvas" aria-label="Escena 3D Photo Sphere Studio"></canvas>

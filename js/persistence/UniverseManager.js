@@ -40,7 +40,7 @@ export class UniverseManager {
     this.savedSignature = null;
     this.dirty = false;
     this.busy = false;
-    this.autosave = localStorage.getItem(LS_AUTOSAVE) === '1';
+    this.autosave = localStorage.getItem(LS_AUTOSAVE) !== '0';
     this.dirtySince = 0;
     this.listeners = [];
     this.dataUrlCache = new WeakMap();
@@ -123,9 +123,15 @@ export class UniverseManager {
       this.dirtySince = dirty ? Date.now() : 0;
       this.emitChange();
     }
-    if (dirty && this.autosave && this.currentId && Date.now() - this.dirtySince > 6000) {
+    if (dirty && this.autosave && Date.now() - this.dirtySince > 1000) {
       this.save({ silent: true });
     }
+  }
+
+  /** Guarda de inmediato si hay cambios y el guardado automático está activo (al cerrar o recargar). */
+  flush() {
+    if (this.busy || !this.autosave || !this.store.available || !this.app.spheres.length) return;
+    if (this.signature() !== this.savedSignature) this.save({ silent: true });
   }
 
   captureThumb() {

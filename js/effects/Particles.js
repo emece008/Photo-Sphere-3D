@@ -20,7 +20,7 @@ const FRAG = `
   varying vec3 vColor;
   void main() {
     float d = length(gl_PointCoord - vec2(0.5));
-    float a = smoothstep(0.5, 0.0, d);
+    float a = 1.0 - smoothstep(0.0, 0.5, d);
     a *= a;
     gl_FragColor = vec4(vColor * a, 1.0);
   }
@@ -51,6 +51,7 @@ export class ParticleEmitter {
     this.age = new Float32Array(max);
     this.life = new Float32Array(max);
     this.base = new Float32Array(max * 3);
+    this.end = new Float32Array(max * 3);
     this.size0 = new Float32Array(max);
     this.grow = new Float32Array(max);
 
@@ -88,14 +89,17 @@ export class ParticleEmitter {
    * @param {number[]} rgb - color 0..1
    * @param {number} size - tamaño inicial (unidades de mundo)
    * @param {number} grow - factor de tamaño final (1 = constante, 0 = se encoge, >1 crece)
+   * @param {number[]} [rgb2] - color final opcional (degradado a lo largo de la vida)
    */
-  spawn(p, v, life, rgb, size, grow = 0) {
+  spawn(p, v, life, rgb, size, grow = 0, rgb2 = null) {
     const i = this.cursor;
     this.cursor = (this.cursor + 1) % this.max;
     const k = i * 3;
     this.pos[k] = p[0]; this.pos[k + 1] = p[1]; this.pos[k + 2] = p[2];
     this.vel[k] = v[0]; this.vel[k + 1] = v[1]; this.vel[k + 2] = v[2];
     this.base[k] = rgb[0]; this.base[k + 1] = rgb[1]; this.base[k + 2] = rgb[2];
+    const e = rgb2 || rgb;
+    this.end[k] = e[0]; this.end[k + 1] = e[1]; this.end[k + 2] = e[2];
     this.age[i] = 0;
     this.life[i] = Math.max(life, 0.01);
     this.size0[i] = size;
@@ -129,9 +133,9 @@ export class ParticleEmitter {
       this.pos[k + 1] += this.vel[k + 1] * dt;
       this.pos[k + 2] += this.vel[k + 2] * dt;
       const fade = (1 - t) * (1 - t);
-      this.col[k] = this.base[k] * fade;
-      this.col[k + 1] = this.base[k + 1] * fade;
-      this.col[k + 2] = this.base[k + 2] * fade;
+      this.col[k] = (this.base[k] + (this.end[k] - this.base[k]) * t) * fade;
+      this.col[k + 1] = (this.base[k + 1] + (this.end[k + 1] - this.base[k + 1]) * t) * fade;
+      this.col[k + 2] = (this.base[k + 2] + (this.end[k + 2] - this.base[k + 2]) * t) * fade;
       this.siz[i] = this.size0[i] * (1 + (this.grow[i] - 1) * t);
     }
     this.alive = alive;

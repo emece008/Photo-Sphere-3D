@@ -210,23 +210,34 @@ export class UIManager {
         { k: 'color', type: 'color', label: 'Color' },
         { k: 'size', label: 'Tamaño', min: 1.2, max: 6, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
         { k: 'intensity', label: 'Intensidad', min: 0.1, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
-        { k: 'pulse', type: 'check', label: 'Pulsar suavemente' }
+        { k: 'pulse', type: 'check', label: 'Pulsar suavemente' },
+        { k: 'speed', label: 'Vel. pulso', min: 0.5, max: 8, step: 0.5, fmt: v => `${v.toFixed(1)}x` }
       ] },
       { key: 'tail', title: '☄️ Cola de cometa', fields: [
         { k: 'color', type: 'color', label: 'Color' },
+        { k: 'gradient', type: 'check', label: 'Degradado' },
+        { k: 'color2', type: 'color', label: 'Color final' },
+        { k: 'follow', type: 'check', label: 'Seguir movimiento' },
         { k: 'length', label: 'Longitud', min: 1, max: 12, step: 0.5, fmt: v => `${v.toFixed(1)}x` },
+        { k: 'life', label: 'Duración', min: 0.4, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
         { k: 'density', label: 'Densidad', min: 10, max: 200, step: 5, fmt: v => `${v}` },
-        { k: 'size', label: 'Grosor', min: 0.3, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` }
+        { k: 'size', label: 'Grosor', min: 0.3, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
+        { k: 'spread', label: 'Dispersión', min: 0, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` }
       ] },
       { key: 'sparks', title: '💫 Chispas', fields: [
         { k: 'color', type: 'color', label: 'Color' },
         { k: 'rate', label: 'Cantidad', min: 5, max: 120, step: 5, fmt: v => `${v}/s` },
-        { k: 'size', label: 'Tamaño', min: 0.3, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` }
+        { k: 'size', label: 'Tamaño', min: 0.3, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
+        { k: 'life', label: 'Duración', min: 0.3, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
+        { k: 'speed', label: 'Velocidad', min: 0.2, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` }
       ] },
       { key: 'beams', title: '📡 Haces de púlsar', fields: [
         { k: 'color', type: 'color', label: 'Color' },
         { k: 'length', label: 'Longitud', min: 3, max: 16, step: 0.5, fmt: v => `${v.toFixed(1)}x` },
-        { k: 'tilt', label: 'Inclinación', min: 0, max: 90, step: 5, fmt: v => `${v}°` }
+        { k: 'width', label: 'Grosor', min: 0.1, max: 1, step: 0.05, fmt: v => `${v.toFixed(2)}x` },
+        { k: 'opacity', label: 'Opacidad', min: 0.1, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
+        { k: 'tilt', label: 'Inclinación', min: 0, max: 90, step: 5, fmt: v => `${v}°` },
+        { k: 'sweep', label: 'Giro', min: -3, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}` }
       ] }
     ];
 
@@ -234,16 +245,27 @@ export class UIManager {
       { key: 'comets', title: '☄️ Lluvia de cometas', fields: [
         { k: 'interval', label: 'Cada', min: 5, max: 180, step: 5, fmt: v => `${v} s` },
         { k: 'count', label: 'Cometas', min: 1, max: 20, step: 1, fmt: v => `${v}` },
-        { k: 'color', type: 'color', label: 'Color' }
+        { k: 'color', type: 'color', label: 'Color' },
+        { k: 'hue', label: 'Variación color', min: 0, max: 0.6, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
+        { k: 'depth', label: 'Profundidad', min: 0.3, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
+        { k: 'speed', label: 'Velocidad', min: 0.3, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
+        { k: 'size', label: 'Tamaño', min: 0.4, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
+        { k: 'tail', label: 'Cola', min: 0.4, max: 3, step: 0.1, fmt: v => `${v.toFixed(1)}x` }
       ] },
       { key: 'nebula', title: '🌌 Nebulosa', fields: [
         { k: 'interval', label: 'Cada', min: 10, max: 300, step: 5, fmt: v => `${v} s` },
         { k: 'size', label: 'Tamaño', min: 0.5, max: 2.5, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
+        { k: 'duration', label: 'Duración', min: 6, max: 60, step: 1, fmt: v => `${v} s` },
+        { k: 'opacity', label: 'Opacidad', min: 0.2, max: 1.5, step: 0.1, fmt: v => `${Math.round(v * 100)}%` },
+        { k: 'density', label: 'Densidad', min: 6, max: 30, step: 1, fmt: v => `${v}` },
         { k: 'color', type: 'color', label: 'Color' }
       ] },
       { key: 'supernova', title: '💥 Supernova', fields: [
         { k: 'interval', label: 'Cada', min: 10, max: 300, step: 5, fmt: v => `${v} s` },
         { k: 'size', label: 'Tamaño', min: 0.5, max: 2.5, step: 0.1, fmt: v => `${v.toFixed(1)}x` },
+        { k: 'duration', label: 'Duración', min: 3, max: 15, step: 1, fmt: v => `${v} s` },
+        { k: 'particles', label: 'Partículas', min: 100, max: 800, step: 20, fmt: v => `${v}` },
+        { k: 'ring', type: 'check', label: 'Onda expansiva' },
         { k: 'color', type: 'color', label: 'Color' }
       ] }
     ];
@@ -462,12 +484,41 @@ export class UIManager {
     if (this.dom.btnCloseDrawer) {
       this.dom.btnCloseDrawer.addEventListener('click', () => this.toggleDrawer(false));
     }
+
+    // Arrastrar el tirador hacia abajo cierra la hoja inferior
+    const handle = document.getElementById('drawer-handle');
+    const drawer = this.dom.mainDrawer;
+    if (handle && drawer) {
+      let startY = null;
+      let dy = 0;
+      handle.addEventListener('pointerdown', (e) => {
+        startY = e.clientY;
+        dy = 0;
+        drawer.style.transition = 'none';
+        handle.setPointerCapture(e.pointerId);
+      });
+      handle.addEventListener('pointermove', (e) => {
+        if (startY === null) return;
+        dy = Math.max(0, e.clientY - startY);
+        drawer.style.transform = `translateY(${dy}px)`;
+      });
+      const end = () => {
+        if (startY === null) return;
+        startY = null;
+        drawer.style.transition = '';
+        drawer.style.transform = '';
+        if (dy > 80) this.toggleDrawer(false);
+      };
+      handle.addEventListener('pointerup', end);
+      handle.addEventListener('pointercancel', end);
+    }
   }
 
   toggleDrawer(force) {
     this.isDrawerOpen = force !== undefined ? force : !this.isDrawerOpen;
     const drawer = this.dom.mainDrawer;
     if (!drawer) return;
+    document.body.classList.toggle('drawer-open', this.isDrawerOpen);
 
     if (this.isDrawerOpen) {
       drawer.classList.remove('translate-y-full', 'md:opacity-0', 'md:pointer-events-none');
@@ -916,7 +967,11 @@ export class UIManager {
   renderPanelSphereSelector(allSpheres, activeSphere) {
     const grid = document.getElementById('picker-grid');
     if (!grid) return;
-    const ps = this.pickerState || (this.pickerState = { page: 0, filter: 'all', collapsed: false });
+    const ps = this.pickerState || (this.pickerState = {
+      page: 0,
+      filter: 'all',
+      collapsed: window.matchMedia('(max-height: 560px)').matches
+    });
     const PAGE_SIZE = 8;
     const icon = (t) => (t === 'star' ? '⭐' : (t === 'moon' ? '🌙' : '🪐'));
 
@@ -939,6 +994,12 @@ export class UIManager {
       });
       const body = document.getElementById('picker-body');
       const toggle = document.getElementById('picker-toggle');
+      if (ps.collapsed) {
+        body.classList.add('hidden');
+        toggle.setAttribute('aria-expanded', 'false');
+        const chev0 = document.getElementById('picker-chevron');
+        if (chev0) chev0.setAttribute('data-lucide', 'chevron-down');
+      }
       toggle.addEventListener('click', () => {
         ps.collapsed = !ps.collapsed;
         body.classList.toggle('hidden', ps.collapsed);

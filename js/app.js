@@ -16,6 +16,7 @@ import { UIManager } from './ui/UIManager.js';
 import { ZenMode } from './ui/ZenMode.js';
 import { TourMode } from './ui/TourMode.js';
 import { Lightbox } from './ui/Lightbox.js';
+import { initNumberFields } from './ui/NumberFields.js';
 import { Raycaster } from './interaction/Raycaster.js';
 import { ImageLoader } from './interaction/ImageLoader.js';
 
@@ -214,6 +215,8 @@ export class PhotoSphereApp {
       window.lucide.createIcons();
     }
 
+    initNumberFields();
+
     // 9. Persistencia local: biblioteca de universos
     this.universe = new UniverseManager(this);
     this.uiManager.initUniversePanel(this.universe);
@@ -221,10 +224,16 @@ export class PhotoSphereApp {
     await this.universe.restoreLast();
     setInterval(() => this.universe.tick(), 2000);
     window.addEventListener('beforeunload', (e) => {
-      if (this.universe.dirty) {
+      if (this.universe.autosave) {
+        this.universe.flush();
+      } else if (this.universe.dirty) {
         e.preventDefault();
         e.returnValue = '';
       }
+    });
+    window.addEventListener('pagehide', () => this.universe.flush());
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') this.universe.flush();
     });
     window.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
@@ -731,8 +740,11 @@ export class PhotoSphereApp {
     let x = 0;
     let y = 0;
     if (ui.isDrawerOpen) {
-      if (window.innerWidth >= 768) x = (drawer.offsetWidth + 20) / 2;
-      else y = drawer.offsetHeight / 2;
+      // Panel lateral si no ocupa todo el ancho (escritorio o móvil horizontal); si no, hoja inferior
+      if (drawer.offsetWidth < window.innerWidth * 0.9) {
+        const left = drawer.getBoundingClientRect().left;
+        x = (window.innerWidth - (left > 0 ? left : window.innerWidth - drawer.offsetWidth)) / 2;
+      } else y = drawer.offsetHeight / 2;
     }
     this.sceneManager.setViewShift(x, y, animate);
   }

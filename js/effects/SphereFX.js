@@ -7,10 +7,10 @@ import { ParticleEmitter, getGlowTexture, hexToRgb } from './Particles.js';
 
 export function createDefaultFx() {
   return {
-    aura: { on: false, color: '#7dd3fc', size: 2.8, intensity: 0.7, pulse: false },
-    tail: { on: false, color: '#7dd3fc', length: 4, density: 70, size: 1 },
-    sparks: { on: false, color: '#fde68a', rate: 25, size: 1 },
-    beams: { on: false, color: '#67e8f9', length: 7, tilt: 35 }
+    aura: { on: false, color: '#7dd3fc', size: 2.8, intensity: 0.7, pulse: false, speed: 3 },
+    tail: { on: false, color: '#7dd3fc', length: 4, density: 70, size: 1, follow: true, life: 1, spread: 1, gradient: false, color2: '#3b6fd8' },
+    sparks: { on: false, color: '#fde68a', rate: 25, size: 1, life: 1, speed: 1 },
+    beams: { on: false, color: '#67e8f9', length: 7, tilt: 35, width: 0.3, opacity: 0.4, sweep: 0 }
   };
 }
 
@@ -81,7 +81,7 @@ export class SphereFXRig {
 
     if (fx.beams.on) {
       const len = s.radius * fx.beams.length;
-      const base = s.radius * 0.3;
+      const base = s.radius * fx.beams.width;
       const col = new THREE.Color(fx.beams.color);
       const group = new THREE.Group();
       for (let i = 0; i < 2; i++) {
@@ -98,7 +98,7 @@ export class SphereFXRig {
         const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
           vertexColors: true,
           transparent: true,
-          opacity: 0.4,
+          opacity: fx.beams.opacity,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
           side: THREE.DoubleSide
@@ -107,13 +107,16 @@ export class SphereFXRig {
         if (i === 1) m.rotation.z = Math.PI;
         group.add(m);
       }
+      group.rotation.order = 'YXZ';
       group.rotation.x = THREE.MathUtils.degToRad(fx.beams.tilt);
+      this.beamAngle = this.beamAngle || 0;
+      group.rotation.y = this.beamAngle;
       this.beams = group;
       mesh.add(group);
     }
 
     if (fx.tail.on && !this.tail) this.tail = new ParticleEmitter(THREE, this.scene, 3000);
-    if (fx.sparks.on && !this.sparks) this.sparks = new ParticleEmitter(THREE, this.scene, 400);
+    if (fx.sparks.on && !this.sparks) this.sparks = new ParticleEmitter(THREE, this.scene, 900);
   }
 
   clearAura() {
@@ -141,47 +144,81 @@ export class SphereFXRig {
     const pos = s.mesh.position;
 
     if (this.aura) {
-      const pulse = fx.aura.pulse ? 0.75 + 0.25 * Math.sin(this.time * 3) : 1;
+      const w = this.time * fx.aura.speed;
+      const pulse = fx.aura.pulse ? 0.75 + 0.25 * Math.sin(w) : 1;
       this.aura.material.opacity = fx.aura.intensity * pulse;
-      this.aura.scale.setScalar(s.radius * 2 * fx.aura.size * (fx.aura.pulse ? 0.96 + 0.04 * Math.sin(this.time * 3) : 1));
+      this.aura.scale.setScalar(s.radius * 2 * fx.aura.size * (fx.aura.pulse ? 0.96 + 0.04 * Math.sin(w) : 1));
+    }
+
+    if (this.beams && fx.beams.sweep) {
+      this.beamAngle += fx.beams.sweep * dt;
+      this.beams.rotation.y = this.beamAngle;
     }
 
     if (fx.tail.on && this.tail && dt > 0) {
-      const par = s.parentId ? spheres.find(o => o.id === s.parentId) : null;
+      // Por defecto la cola va detrás de la esfera, en sentido contrario a su movimiento real
       let dx = 1, dy = 0.25, dz = 0;
-      if (par && par.mesh) {
-        dx = pos.x - par.mesh.position.x;
-        dy = pos.y - par.mesh.position.y;
-        dz = pos.z - par.mesh.position.z;
+      const lp = this.lastPos;
+      let moving = false;
+      if (fx.tail.follow && lp) {
+        const vx = pos.x - lp[0], vy = pos.y - lp[1], vz = pos.z - lp[2];
+        const vl = Math.hypot(vx, vy, vz);
+        if (vl / dt > 0.5) {
+          moving = true;
+          dx = -vx / vl; dy = -vy / vl; dz = -vz / vl;
+        }
       }
-      const l = Math.hypot(dx, dy, dz) || 1;
-      dx /= l; dy /= l; dz /= l;
-      const speed = s.radius * fx.tail.length * 0.8;
+      if (fx.tail.follow) {
+        if (moving) {
+          if (!this.tailDir) this.tailDir = [dx, dy, dz];
+          const k = Math.min(1, dt * 8);
+          const d = this.tailDir;
+          d[0] += (dx - d[0]) * k; d[1] += (dy - d[1]) * k; d[2] += (dz - d[2]) * k;
+        }
+        if (this.tailDir) {
+          const l = Math.hypot(...this.tailDir) || 1;
+          dx = this.tailDir[0] / l; dy = this.tailDir[1] / l; dz = this.tailDir[2] / l;
+        } else {
+          dx = 1; dy = 0.25; dz = 0;
+        }
+      } else {
+        const par = s.parentId ? spheres.find(o => o.id === s.parentId) : null;
+        if (par && par.mesh) {
+          dx = pos.x - par.mesh.position.x;
+          dy = pos.y - par.mesh.position.y;
+          dz = pos.z - par.mesh.position.z;
+        }
+        const l = Math.hypot(dx, dy, dz) || 1;
+        dx /= l; dy /= l; dz /= l;
+      }
+      const speed = s.radius * fx.tail.length * 0.8 / fx.tail.life;
       const rgb = hexToRgb(fx.tail.color);
+      const rgb2 = fx.tail.gradient ? hexToRgb(fx.tail.color2) : null;
       this.accTail += fx.tail.density * dt;
       const tsize = s.radius * 0.45 * fx.tail.size;
-      const moved = this.lastPos ? Math.hypot(pos.x - this.lastPos[0], pos.y - this.lastPos[1], pos.z - this.lastPos[2]) : 0;
+      const moved = lp ? Math.hypot(pos.x - lp[0], pos.y - lp[1], pos.z - lp[2]) : 0;
       let n = Math.min(Math.max(Math.floor(this.accTail), Math.ceil(moved / (tsize * 0.6))), 60);
       const total = n;
       this.accTail -= Math.floor(this.accTail);
       while (n-- > 0) {
-        const j = s.radius * 0.3;
-        const f = this.lastPos && total > 1 ? n / total : 0;
-        const bx = pos.x - (pos.x - (this.lastPos ? this.lastPos[0] : pos.x)) * f;
-        const by = pos.y - (pos.y - (this.lastPos ? this.lastPos[1] : pos.y)) * f;
-        const bz = pos.z - (pos.z - (this.lastPos ? this.lastPos[2] : pos.z)) * f;
+        const j = s.radius * 0.3 * fx.tail.spread;
+        const f = lp && total > 1 ? n / total : 0;
+        const bx = pos.x - (pos.x - (lp ? lp[0] : pos.x)) * f;
+        const by = pos.y - (pos.y - (lp ? lp[1] : pos.y)) * f;
+        const bz = pos.z - (pos.z - (lp ? lp[2] : pos.z)) * f;
         tmp[0] = bx + dx * s.radius * 0.9 + (Math.random() - 0.5) * j;
         tmp[1] = by + dy * s.radius * 0.9 + (Math.random() - 0.5) * j;
         tmp[2] = bz + dz * s.radius * 0.9 + (Math.random() - 0.5) * j;
         const sp = speed * (0.8 + Math.random() * 0.4);
-        const jit = sp * 0.08;
+        const jit = sp * 0.08 * fx.tail.spread;
         this.tail.spawn(
           tmp,
           [dx * sp + (Math.random() - 0.5) * jit, dy * sp + (Math.random() - 0.5) * jit, dz * sp + (Math.random() - 0.5) * jit],
-          1.6 + Math.random() * 0.6,
+          (1.6 + Math.random() * 0.6) * fx.tail.life,
           rgb,
           tsize,
-          0.45
+          0.45,
+          rgb2
         );
       }
     }
@@ -200,8 +237,8 @@ export class SphereFXRig {
         tmp[0] = pos.x + ux * s.radius * 1.02;
         tmp[1] = pos.y + uy * s.radius * 1.02;
         tmp[2] = pos.z + uz * s.radius * 1.02;
-        const sp = s.radius * (0.35 + Math.random() * 0.6);
-        this.sparks.spawn(tmp, [ux * sp, uy * sp, uz * sp], 1.2 + Math.random() * 0.8, rgb, s.radius * 0.11 * fx.sparks.size, 0.3);
+        const sp = s.radius * (0.35 + Math.random() * 0.6) * fx.sparks.speed;
+        this.sparks.spawn(tmp, [ux * sp, uy * sp, uz * sp], (1.2 + Math.random() * 0.8) * fx.sparks.life, rgb, s.radius * 0.11 * fx.sparks.size, 0.3);
       }
     }
 

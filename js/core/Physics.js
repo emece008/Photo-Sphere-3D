@@ -183,7 +183,8 @@ export class Physics {
       const parent = sphereMap.get(parentId);
       if (!parent) return;
 
-      // 1. Garantizar distancia mínima respecto a la superficie del padre
+      // Cada órbita es independiente: solo se garantiza la distancia mínima a la superficie del padre.
+      // Las órbitas de hermanos pueden cruzarse; no se empujan unas a otras al editarlas.
       siblings.forEach(child => {
         const minDistanceToParent = parent.radius + child.radius + Math.max(20, margin * 0.4);
         child.minPeriapsis = minDistanceToParent;
@@ -191,24 +192,6 @@ export class Physics {
           child.orbitRadius = minDistanceToParent;
         }
       });
-
-      if (siblings.length < 2) return;
-
-      // 2. Ordenar hermanos por radio orbital
-      siblings.sort((a, b) => a.orbitRadius - b.orbitRadius);
-
-      // 3. Separación de carriles orbitales entre planetas hermanos
-      for (let i = 0; i < siblings.length - 1; i++) {
-        const inner = siblings[i];
-        const outer = siblings[i + 1];
-
-        const reqSeparation = inner.radius + outer.radius + Math.max(15, margin * 0.35);
-        const currentDiff = outer.orbitRadius - inner.orbitRadius;
-
-        if (currentDiff < reqSeparation) {
-          outer.orbitRadius = inner.orbitRadius + reqSeparation;
-        }
-      }
     });
   }
 

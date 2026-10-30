@@ -61,3 +61,28 @@
 #toast-notify.opacity-0 {
   transform: translate(-50%, -12px);
 }
+
+/* Campo numÃ©rico editable junto a los deslizadores */
+.num-field { display: inline-flex; align-items: center; gap: 2px; }
+.num-field-input {
+  width: 4.2rem; padding: 1px 4px; text-align: right;
+  font-family: ui-monospace, monospace; font-weight: 700; font-size: 11px;
+  color: #00f0ff; background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; outline: none;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.num-field-input:focus { border-color: #22d3ee; }
+.num-field-input::-webkit-outer-spin-button,
+.num-field-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.num-field-btn {
+  width: 20px; height: 20px; line-height: 1; font-size: 8px; color: #94a3b8;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px; cursor: pointer; touch-action: manipulation; user-select: none;
+}
+.num-field-btn:hover, .num-field-btn:active { color: #fff; background: rgba(34, 211, 238, 0.25); }
+.num-field-unit { min-width: 0.9rem; font-size: 10px; color: #94a3b8; font-family: ui-monospace, monospace; }
+
+/* Selector de esferas: sin caja vacía cuando está plegado */
+#sphere-picker:has(#picker-body.hidden) { display: none; }
+#create-menu { top: 3.5rem; }
+

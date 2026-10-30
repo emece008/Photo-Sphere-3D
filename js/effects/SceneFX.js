@@ -9,9 +9,9 @@ import { SphereFXRig, anyFxOn } from './SphereFX.js';
 
 export function createDefaultSceneFx() {
   return {
-    comets: { on: false, interval: 40, count: 6, color: '#9bd8ff' },
-    nebula: { on: false, interval: 60, size: 1, color: '#a855f7' },
-    supernova: { on: false, interval: 90, size: 1, color: '#fb923c' }
+    comets: { on: false, interval: 40, count: 6, color: '#9bd8ff', speed: 1, size: 1, tail: 1, depth: 1, hue: 0 },
+    nebula: { on: false, interval: 60, size: 1, color: '#a855f7', duration: 16, opacity: 1, density: 16 },
+    supernova: { on: false, interval: 90, size: 1, color: '#fb923c', duration: 7, particles: 380, ring: true }
   };
 }
 
@@ -30,7 +30,7 @@ export class SceneFX {
     if (!config.sceneFx) config.sceneFx = createDefaultSceneFx();
 
     this.active = [];
-    this.trails = new ParticleEmitter(THREE, sceneManager.scene, 3000);
+    this.trails = new ParticleEmitter(THREE, sceneManager.scene, 5000);
     this.bursts = new ParticleEmitter(THREE, sceneManager.scene, 1500);
     this.timers = {};
     Object.keys(config.sceneFx).forEach(k => this.resetTimer(k));
@@ -66,24 +66,60 @@ export class SceneFX {
   spawnComets(cfg, v) {
     const { THREE } = this;
     const base = hexToRgb(cfg.color);
+    const sm = this.sm;
+    const target = sm.controls ? sm.controls.target : null;
+    // Distancia de referencia: la escena enfocada; hay cometas por delante y por detrás de ella
+    const Dc = Math.max(v.cam.position.distanceTo(target || new THREE.Vector3()), 200);
+    const depth = cfg.depth ?? 1;
+    const dMin = Dc * 0.45;
+    const dMax = Dc * (1.2 + 1.8 * depth);
+    const white = new THREE.Color(1, 1, 1);
+    const hsl = {};
+
+    // Todos los cometas de una lluvia comparten sentido general, con variaciones y componente en profundidad
     const dirSign = Math.random() < 0.5 ? 1 : -1;
     const tilt = rand(0.25, 0.6);
+    const zBias = rand(-0.45, 0.45);
+
     for (let i = 0; i < cfg.count; i++) {
-      const D = rand(500, 1500);
+      const D = rand(dMin, dMax);
+      const depthF = (D - dMin) / Math.max(dMax - dMin, 1);
+      const haze = 1 - 0.55 * depthF;
+
+      const dir = v.right.clone().multiplyScalar(dirSign)
+        .addScaledVector(v.up, -(tilt + rand(-0.12, 0.12)))
+        .addScaledVector(v.fwd, THREE.MathUtils.clamp(zBias + rand(-0.2, 0.2), -0.6, 0.6))
+        .normalize();
+
+      // Trayectoria que cruza el encuadre a la profundidad D
       const halfW = D * v.tanH * v.aspect;
-      const halfH = D * v.tanH;
-      const startX = -dirSign * halfW * rand(1.05, 1.5);
-      const startY = rand(-0.2, 1) * halfH;
-      const start = v.cam.position.clone()
+      const half = Math.max(halfW, D * v.tanH) * 1.5;
+      const aim = v.cam.position.clone()
         .addScaledVector(v.fwd, D)
-        .addScaledVector(v.right, startX)
-        .addScaledVector(v.up, startY);
-      const dir = v.right.clone().multiplyScalar(dirSign).addScaledVector(v.up, -tilt).normalize();
-      const speed = halfW * rand(0.9, 1.5);
-      const headSize = D * rand(0.03, 0.05);
+        .addScaledVector(v.right, rand(-0.7, 0.7) * halfW)
+        .addScaledVector(v.up, rand(-0.6, 0.6) * D * v.tanH);
+      const start = aim.clone().addScaledVector(dir, -half);
+
+      // Velocidad en unidades de mundo: lo cercano cruza más rápido en pantalla (paralaje)
+      const duration = THREE.MathUtils.clamp((half * 2) / 420, 1.8, 6) / (cfg.speed || 1);
+      const speed = (half * 2) / duration;
+
+      const headSize = 9 * (cfg.size ?? 1) * rand(0.8, 1.3) * (0.75 + 0.75 * depthF);
+      const tailLife = cfg.tail ?? 1;
+
+      let rgb = base;
+      if (cfg.hue > 0) {
+        new THREE.Color(base[0], base[1], base[2]).getHSL(hsl);
+        const c = new THREE.Color().setHSL((hsl.h + rand(-0.5, 0.5) * cfg.hue + 1) % 1, hsl.s, hsl.l);
+        rgb = [c.r, c.g, c.b];
+      }
+      const tailRgb = rgb.map(c => c * haze);
+      const hotRgb = new THREE.Color(rgb[0], rgb[1], rgb[2]).lerp(white, 0.6).toArray().map(c => c * haze);
+
       const head = new THREE.Sprite(new THREE.SpriteMaterial({
         map: getGlowTexture(THREE),
-        color: new THREE.Color(base[0], base[1], base[2]).lerp(new THREE.Color(1, 1, 1), 0.5),
+        color: new THREE.Color(rgb[0], rgb[1], rgb[2]).lerp(white, 0.5),
+        opacity: haze,
         transparent: true,
         blending: THREE.AdditiveBlending,
         depthWrite: false
@@ -97,7 +133,7 @@ export class SceneFX {
       const comet = {
         delay: i * rand(0.25, 0.7),
         age: 0,
-        max: (halfW * 3) / speed,
+        max: duration,
         pos: start,
         last: start.clone(),
         update: (dt) => {
@@ -108,18 +144,19 @@ export class SceneFX {
           head.visible = true;
           head.position.copy(comet.pos);
           const dist = comet.last.distanceTo(comet.pos);
-          const step = headSize * 0.35;
-          const n = Math.min(Math.ceil(dist / step), 12);
+          const step = headSize * 0.25;
+          const n = Math.min(Math.ceil(dist / step), 24);
           for (let k = 0; k < n; k++) {
             const f = k / n;
             const p = comet.last.clone().lerp(comet.pos, f);
             this.trails.spawn(
               [p.x + rand(-1, 1) * headSize * 0.15, p.y + rand(-1, 1) * headSize * 0.15, p.z + rand(-1, 1) * headSize * 0.15],
               [0, 0, 0],
-              rand(0.9, 1.5),
-              base,
+              rand(0.9, 1.5) * tailLife,
+              hotRgb,
               headSize * 0.75,
-              0.1
+              0.1,
+              tailRgb
             );
           }
           return comet.age > comet.max;
@@ -175,9 +212,9 @@ export class SceneFX {
     const { D, pos } = this.placeInView(v, 1100, 2000);
     const R = D * 0.2 * cfg.size;
     const base = new THREE.Color(cfg.color);
-    const duration = 16;
+    const duration = cfg.duration ?? 16;
     const puffs = [];
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < (cfg.density ?? 16); i++) {
       const hsl = {};
       base.getHSL(hsl);
       const col = new THREE.Color().setHSL((hsl.h + rand(-0.08, 0.08) + 1) % 1, Math.min(1, hsl.s * rand(0.8, 1.1)), Math.min(0.8, hsl.l * rand(0.8, 1.25)));
@@ -195,7 +232,7 @@ export class SceneFX {
       sprite.position.copy(pos).add(off);
       const s0 = R * rand(0.7, 1.3);
       sprite.scale.setScalar(s0);
-      sprite.userData = { s0, spin: rand(-0.06, 0.06), peak: rand(0.35, 0.7), off };
+      sprite.userData = { s0, spin: rand(-0.06, 0.06), peak: Math.min(1, rand(0.35, 0.7) * (cfg.opacity ?? 1)), off };
       this.sm.scene.add(sprite);
       puffs.push(sprite);
     }
@@ -262,18 +299,20 @@ export class SceneFX {
     ring.raycast = () => {};
     ring.position.copy(pos);
     ring.lookAt(v.cam.position);
+    ring.visible = cfg.ring !== false;
     this.sm.scene.add(ring);
 
+    const k = (cfg.duration ?? 7) / 7;
     const white = [1, 1, 1];
-    for (let i = 0; i < 380; i++) {
+    for (let i = 0; i < (cfg.particles ?? 380); i++) {
       const u = rand(-1, 1);
       const a = rand(0, Math.PI * 2);
       const r = Math.sqrt(1 - u * u);
-      const sp = (R / 3) * rand(0.25, 1.1);
+      const sp = (R / 3) * rand(0.25, 1.1) / k;
       this.bursts.spawn(
         [pos.x, pos.y, pos.z],
         [r * Math.cos(a) * sp, u * sp, r * Math.sin(a) * sp],
-        rand(2.2, 4),
+        rand(2.2, 4) * k,
         Math.random() < 0.3 ? white : rgb,
         D * rand(0.008, 0.02),
         0.2
@@ -284,16 +323,16 @@ export class SceneFX {
     this.active.push({
       update: (dt) => {
         age += dt;
-        const tf = Math.min(age / 0.9, 1);
+        const tf = Math.min(age / (0.9 * k), 1);
         flash.scale.setScalar(R * 1.6 * (0.2 + tf));
         flash.material.opacity = (1 - tf) * (1 - tf);
-        const tr = Math.min(age / 4, 1);
+        const tr = Math.min(age / (4 * k), 1);
         ring.scale.setScalar(R * (0.05 + tr));
         ring.material.opacity = (1 - tr) * 0.9;
-        const te = Math.min(age / 7, 1);
+        const te = Math.min(age / (7 * k), 1);
         remnant.scale.setScalar(R * (0.35 + 0.4 * te));
         remnant.material.opacity = Math.min(age / 0.4, 1) * (1 - te) * 0.5;
-        return age >= 7;
+        return age >= 7 * k;
       },
       dispose: () => {
         this.sm.scene.remove(flash, remnant, ring);
